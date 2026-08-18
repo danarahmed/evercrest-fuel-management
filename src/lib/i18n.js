@@ -182,7 +182,15 @@ export const DICT = {
     "qtyPositive": "Quantity must be more than zero.",
     "qtyTooBig": "That quantity looks too large.",
     "datePast": "Pick today or a later date.",
-    "sessionEnded": "Your session ended. Sign in again."
+    "sessionEnded": "Your session ended. Sign in again.",
+    "noteWord": "Note",
+    "ordersList": "Orders",
+    "summary": "Summary",
+    "openDetails": "Open",
+    "details": "Details",
+    "actDeliver": "Received",
+    "actLoad": "Load",
+    "actApprove": "Approve"
   },
   "ku": {
     "dir": "rtl",
@@ -366,7 +374,15 @@ export const DICT = {
     "qtyPositive": "بڕەکە دەبێت لە سفر زیاتر بێت.",
     "qtyTooBig": "ئەم بڕە زۆر گەورە دیارە.",
     "datePast": "ئەمڕۆ یان بەرواری دواتر هەڵبژێرە.",
-    "sessionEnded": "دانیشتنەکەت کۆتایی هات. دووبارە بچۆ ژوورەوە."
+    "sessionEnded": "دانیشتنەکەت کۆتایی هات. دووبارە بچۆ ژوورەوە.",
+    "noteWord": "تێبینی",
+    "ordersList": "داواکاریەکان",
+    "summary": "کورتە",
+    "openDetails": "کردنەوە",
+    "details": "وردەکاری",
+    "actDeliver": "وەرگیرا",
+    "actLoad": "بارکردن",
+    "actApprove": "پەسەند"
   }
 }
 

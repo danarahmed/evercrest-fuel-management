@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { OrderCard } from './OrderCard'
+import { OrderRow } from './OrderRow'
+import { OrderDetail } from './OrderDetail'
 import { Empty, ErrorBox, Spinner } from './common'
 import { fetchOrders } from '../lib/api'
 import { num, OPEN_STATUSES } from '../lib/util'
@@ -40,6 +41,7 @@ export function OrdersList({
   const [page, setPage] = useState(0)
   const [state, setState] = useState('loading') // loading | ready | error | more
   const [problem, setProblem] = useState('')
+  const [detail, setDetail] = useState(null)
 
   const live = useRef(0)
 
@@ -197,9 +199,21 @@ export function OrdersList({
         />
       )}
 
-      {rows.map((o) => (
-        <OrderCard key={o.id} order={o} t={t} lang={lang} role={role} onAct={onAct} />
-      ))}
+      {rows.length > 0 && (
+        <div className="olist">
+          {rows.map((o) => (
+            <OrderRow
+              key={o.id}
+              order={o}
+              t={t}
+              lang={lang}
+              role={role}
+              onOpen={setDetail}
+              onAct={onAct}
+            />
+          ))}
+        </div>
+      )}
 
       {hasMore && state !== 'error' && (
         <button
@@ -209,6 +223,20 @@ export function OrdersList({
         >
           {state === 'more' ? t.loadingData : `${t.loadMore} (${num(total - shown)})`}
         </button>
+      )}
+
+      {detail && (
+        <OrderDetail
+          order={detail}
+          t={t}
+          lang={lang}
+          role={role}
+          onClose={() => setDetail(null)}
+          onAct={(a, o) => {
+            setDetail(null)
+            onAct(a, o)
+          }}
+        />
       )}
     </>
   )

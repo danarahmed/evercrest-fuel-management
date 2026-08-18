@@ -143,28 +143,7 @@ html[dir="rtl"] .countbar{font-family:var(--sans);font-size:13px}
 }
 
 /* ---------- ticket ---------- */
-.ticket{
-  background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);
-  margin-bottom:11px;overflow:hidden;display:flex;
-}
-.spine{width:5px;flex:0 0 5px;background:var(--slate)}
-.ticket-body{flex:1;min-width:0;padding:12px 13px 11px}
-.t-pending .spine{background:var(--amber)}
-.t-approved .spine{background:var(--petrol)}
-.t-loaded .spine{background:var(--sky)}
-.t-delivered .spine{background:var(--go)}
-.t-rejected .spine{background:var(--flag)}
-.t-cancelled .spine{background:var(--slate)}
-
-.t-head{display:flex;align-items:flex-start;gap:9px;margin-bottom:7px}
-.t-no{
-  font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--ink3);
-  letter-spacing:.03em;padding-top:2px;
-}
-.t-title{flex:1;min-width:0}
-.t-station{font-weight:600;font-size:15px;line-height:1.25}
-.t-sub{font-size:12.5px;color:var(--ink2);margin-top:1px}
-
+/* ---------- status chip + progress rail (shared) ---------- */
 .chip{
   font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;
   padding:3px 8px;border-radius:5px;white-space:nowrap;flex:0 0 auto;
@@ -177,15 +156,7 @@ html[dir="rtl"] .chip{letter-spacing:0;text-transform:none;font-size:11.5px}
 .c-rejected{background:var(--flag-tint);color:var(--flag)}
 .c-cancelled{background:var(--slate-tint);color:var(--slate)}
 
-.qty{display:flex;align-items:baseline;gap:5px;margin:2px 0 10px}
-.qty b{font-family:var(--mono);font-size:25px;font-weight:600;letter-spacing:-.01em}
-.qty span{font-size:12.5px;color:var(--ink2);font-family:var(--mono)}
-.qty .fuel{
-  margin-inline-start:auto;font-size:12.5px;color:var(--ink);font-weight:500;
-  background:var(--line2);padding:3px 9px;border-radius:5px;font-family:var(--sans);
-}
-
-.rail{display:flex;align-items:flex-start;margin:0 0 9px;padding-top:2px}
+.rail{display:flex;align-items:flex-start;margin:4px 0 12px;padding-top:2px}
 .rail-step{flex:1;display:flex;flex-direction:column;align-items:center;position:relative;min-width:0}
 .rail-step::before,.rail-step::after{content:'';position:absolute;top:6px;height:2px;background:var(--line)}
 .rail-step::before{inset-inline-start:0;width:50%}
@@ -204,13 +175,84 @@ html[dir="rtl"] .chip{letter-spacing:0;text-transform:none;font-size:11.5px}
 html[dir="rtl"] .rail-step small{font-size:10.5px}
 .rail-step.done small{color:var(--ink2);font-weight:500}
 
-.meta{font-size:12px;color:var(--ink3);font-family:var(--mono);letter-spacing:.01em}
-html[dir="rtl"] .meta{font-family:var(--sans);font-size:12.5px}
-.note{
-  font-size:13px;color:var(--ink2);background:var(--line2);
-  padding:7px 10px;border-radius:7px;margin:8px 0 0;word-break:break-word;
+/* ---------- order list: one line per order ---------- */
+.olist{
+  background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);
+  overflow:hidden;margin-bottom:12px;
 }
-.note b{color:var(--ink);font-weight:600}
+.orow{
+  display:flex;align-items:stretch;gap:0;
+  border-bottom:1px solid var(--line2);position:relative;
+}
+.orow:last-child{border-bottom:0}
+.orow::before{
+  content:'';position:absolute;inset-block:0;inset-inline-start:0;
+  width:3px;background:var(--slate);
+}
+.orow.s-pending::before{background:var(--amber)}
+.orow.s-approved::before{background:var(--petrol)}
+.orow.s-loaded::before{background:var(--sky)}
+.orow.s-delivered::before{background:var(--go)}
+.orow.s-rejected::before{background:var(--flag)}
+.orow.s-cancelled::before{background:var(--slate)}
+
+.orow-main{
+  flex:1;min-width:0;display:flex;align-items:flex-start;gap:9px;
+  background:transparent;border:0;cursor:pointer;text-align:start;
+  padding:11px 12px 11px 15px;font:inherit;color:inherit;
+}
+html[dir="rtl"] .orow-main{padding:11px 15px 11px 12px}
+.orow-main:hover{background:var(--line2)}
+.orow-no{
+  font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--ink3);
+  padding-top:2px;flex:0 0 auto;letter-spacing:.02em;
+}
+.orow-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.orow-top{display:flex;align-items:center;gap:8px;min-width:0}
+.orow-station{
+  font-weight:600;font-size:14.5px;line-height:1.2;flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.orow-facts{
+  display:flex;align-items:baseline;gap:5px;flex-wrap:nowrap;
+  font-size:12.5px;color:var(--ink2);
+  overflow:hidden;white-space:nowrap;
+}
+.orow-facts>span:not(.u):not(.dot-sep){overflow:hidden;text-overflow:ellipsis}
+.orow-facts b{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--ink)}
+.orow-facts .u{font-family:var(--mono);font-size:11px;color:var(--ink3)}
+.dot-sep{color:var(--ink3)}
+
+.orow-act{
+  flex:0 0 auto;align-self:center;margin-inline-end:11px;
+  border:0;border-radius:7px;padding:8px 13px;
+  font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;
+}
+.orow-act.a-go{background:var(--petrol);color:#fff}
+.orow-act.a-load{background:var(--sky);color:#fff}
+.orow-act.a-done{background:var(--go);color:#fff}
+.orow-act:hover{filter:brightness(.94)}
+@media(max-width:400px){.orow-act{padding:7px 10px;font-size:12px}}
+
+/* ---------- detail sheet ---------- */
+.d-head{display:flex;align-items:center;gap:9px;margin:2px 0 12px;flex-wrap:wrap}
+.d-qty{display:flex;align-items:baseline;gap:4px}
+.d-qty b{font-family:var(--mono);font-size:27px;font-weight:600;letter-spacing:-.01em}
+.d-qty span{font-family:var(--mono);font-size:12.5px;color:var(--ink2)}
+.d-fuel{
+  font-size:12.5px;font-weight:500;background:var(--line2);
+  padding:3px 9px;border-radius:5px;
+}
+.d-head .chip{margin-inline-start:auto}
+
+.facts{margin:12px 0 0;padding:0;display:flex;flex-direction:column}
+.fact{
+  display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--line2);
+  font-size:13.5px;
+}
+.fact:last-child{border-bottom:0}
+.fact dt{flex:0 0 40%;max-width:170px;color:var(--ink3);font-size:12.5px;margin:0}
+.fact dd{flex:1;min-width:0;margin:0;color:var(--ink);word-break:break-word}
 
 .trail{margin-top:9px;border-top:1px solid var(--line2);padding-top:9px}
 .trail-i{display:flex;gap:9px;font-size:12.5px;color:var(--ink2);padding:3px 0}
