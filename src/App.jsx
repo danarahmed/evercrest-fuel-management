@@ -10,6 +10,7 @@ import { Setup } from './components/Admin'
 import { Account } from './components/Account'
 import { ActionSheet } from './components/ActionSheet'
 import { Empty, Spinner } from './components/common'
+import { Mark } from './components/Logo'
 
 /**
  * Tabs per role.
@@ -183,9 +184,12 @@ export function App() {
     <>
       <header className="top">
         <div className="top-in">
-          <div className="brand">
-            <b>{t.appName}</b>
-            <span>{profile.full_name} · {t['r_' + role]}</span>
+          <div className="top-brand">
+            <Mark size={36} />
+            <div className="brand">
+              <b>{t.appName}</b>
+              <span>{profile.full_name} · {t['r_' + role]}</span>
+            </div>
           </div>
           <button className="tbtn mono" onClick={() => setLang(lang === 'ku' ? 'en' : 'ku')}>
             {lang === 'ku' ? 'EN' : 'KU'}

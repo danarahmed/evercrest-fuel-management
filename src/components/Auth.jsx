@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase, usernameToEmail } from '../lib/supabase'
 import { ErrorBox, PasswordInput } from './common'
+import { Wordmark, Mark } from './Logo'
 
 export function SignIn({ t, lang, setLang }) {
   const [username, setUsername] = useState('')
@@ -26,11 +27,7 @@ export function SignIn({ t, lang, setLang }) {
   return (
     <div className="auth">
       <form className="auth-card" onSubmit={submit}>
-        <div className="mark">
-          <div className="glyph">⛽</div>
-          <b>{t.appName}</b>
-          <span>{t.appSub}</span>
-        </div>
+        <Wordmark tagline={`${t.appName} · ${t.appSub}`} />
 
         <div className="panel">
           <ErrorBox>{problem}</ErrorBox>
@@ -84,7 +81,7 @@ export function Inactive({ t }) {
     <div className="auth">
       <div className="auth-card">
         <div className="mark">
-          <div className="glyph">⛽</div>
+          <Mark size={64} />
           <b>{t.inactive}</b>
           <span>{t.inactiveMsg}</span>
         </div>
