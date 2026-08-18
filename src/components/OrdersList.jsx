@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { OrderRow } from './OrderRow'
 import { OrderDetail } from './OrderDetail'
 import { Empty, ErrorBox, Spinner } from './common'
-import { fetchOrders } from '../lib/api'
+import { fetchOrders, PAGE_SIZE } from '../lib/api'
 import { num, dayLabel, locationsOf, OPEN_STATUSES, DONE_STATUSES } from '../lib/util'
 import { translateError } from './ActionSheet'
 
@@ -90,9 +90,44 @@ export function OrdersList({
     [statuses, stationId, location, scope.actorId, scope.stationId, term, t],
   )
 
+  // A filter or scope change reloads from page 0 with a spinner.
   useEffect(() => {
     load(0, false)
-  }, [load, refreshKey])
+  }, [load])
+
+  // A background realtime refresh must not throw the user back to page 1 or
+  // flash a spinner: re-fetch exactly the rows currently on screen and swap
+  // them in place, keeping scroll position and the loaded page count.
+  const quietRefresh = useCallback(async () => {
+    const ticket = ++live.current
+    try {
+      const { rows: got, count } = await fetchOrders({
+        statuses,
+        stationId: stationId || scope.stationId || undefined,
+        location: location || undefined,
+        actorId: scope.actorId,
+        search: term,
+        page: 0,
+        pageSize: (page + 1) * PAGE_SIZE,
+      })
+      if (ticket !== live.current) return
+      setRows(got)
+      setTotal(count)
+    } catch {
+      // keep the current rows on a background blip
+    }
+  }, [statuses, stationId, location, scope.actorId, scope.stationId, term, page])
+
+  const quietRef = useRef(quietRefresh)
+  quietRef.current = quietRefresh
+  const firstRefresh = useRef(true)
+  useEffect(() => {
+    if (firstRefresh.current) {
+      firstRefresh.current = false
+      return
+    }
+    quietRef.current()
+  }, [refreshKey])
 
   const busy = state === 'loading'
   const filtered = Boolean(status || stationId || location || term)

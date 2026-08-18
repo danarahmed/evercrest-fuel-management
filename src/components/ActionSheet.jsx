@@ -143,7 +143,6 @@ export function ActionSheet({ act, order, t, onClose, onDone }) {
               className="inp"
               type="file"
               accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
-              capture="environment"
               onChange={pickFile}
             />
           </div>

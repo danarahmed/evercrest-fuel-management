@@ -85,7 +85,7 @@ export function Inactive({ t }) {
           <b>{t.inactive}</b>
           <span>{t.inactiveMsg}</span>
         </div>
-        <button className="btn btn-ghost wide" onClick={() => supabase.auth.signOut()}>
+        <button className="btn btn-ghost wide" onClick={() => supabase.auth.signOut().catch(() => {})}>
           {t.signOut}
         </button>
       </div>

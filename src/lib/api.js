@@ -113,6 +113,22 @@ export async function fetchReference(userId) {
   }
 }
 
+/**
+ * Server-computed report: exact sums over the whole matching set, grouped by
+ * local calendar day. No row cap and no timezone slicing — the database does
+ * the arithmetic, so the totals are exact however many orders exist.
+ */
+export async function reportSummary({ fromDate, toDate, stationId, status } = {}) {
+  const { data, error } = await supabase.rpc('report_summary', {
+    p_from: fromDate ? fromDate.toISOString() : null,
+    p_to: toDate ? toDate.toISOString() : null,
+    p_station: stationId || null,
+    p_status: status || null,
+  })
+  if (error) throw new Error(errText(error, 'load-failed'))
+  return data || []
+}
+
 export async function fetchEvents(orderId) {
   const { data, error } = await supabase
     .from('order_events')

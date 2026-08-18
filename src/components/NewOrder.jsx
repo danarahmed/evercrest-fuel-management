@@ -41,7 +41,7 @@ export function NewOrder({ t, lang, products, stations, profile, onDone }) {
     if (!productId) return setProblem(t.pickFuel)
     if (!Number.isFinite(qty) || qty <= 0) return setProblem(t.qtyPositive)
     if (qty > MAX_QUANTITY) return setProblem(t.qtyTooBig)
-    if (needed < today) return setProblem(t.datePast)
+    if (needed < isoDate(new Date())) return setProblem(t.datePast)
     if (isAdmin && !stationId) return setProblem(t.noStationFirst)
 
     setBusy(true)

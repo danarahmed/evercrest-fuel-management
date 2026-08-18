@@ -1,27 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Empty, ErrorBox, Spinner } from './common'
-import { fetchOrders } from '../lib/api'
+import { reportSummary } from '../lib/api'
 import { daysAgo, downloadCsv, isoDate, locationsOf, num, startOfDay } from '../lib/util'
 import { translateError } from './ActionSheet'
 
-const REPORT_CAP = 2000
-
 /**
- * The three numbers the office actually tracks, per order:
+ * Reports read from a server-side aggregate (report_summary). The database
+ * groups by local calendar day and sums over every matching order — no row
+ * cap, no UTC slicing — so the totals are exact. Each returned row is already
+ * one day+station line; the client only formats and sums the handful of lines.
  *
- *   loaded   — left the yard at all (loaded now, or already delivered)
- *   onWay    — loaded but the station has not confirmed it yet
+ *   loaded   — left the yard (loaded now, or already delivered)
+ *   on_way   — loaded but the station has not signed for it yet (subset of loaded)
  *   received — the station signed for it
- *
- * onWay is deliberately a subset of loaded, not a separate stage: a truck that
- * has been loaded is on the way until it is received.
  */
-const loadedOf = (o) =>
-  ['loaded', 'delivered'].includes(o.status) ? Number(o.loaded_quantity ?? o.quantity) : 0
-const onWayOf = (o) => (o.status === 'loaded' ? Number(o.loaded_quantity ?? o.quantity) : 0)
-const receivedOf = (o) =>
-  o.status === 'delivered' ? Number(o.received_quantity ?? o.loaded_quantity ?? o.quantity) : 0
-
 const PERIODS = ['pToday', 'p7', 'p30', 'p90', 'allTime']
 const STATUS_CHOICES = ['pending', 'approved', 'loaded', 'delivered', 'rejected', 'cancelled']
 
@@ -31,7 +23,6 @@ export function Reports({ t, lang, role, profile, stations, refreshKey }) {
   const [location, setLocation] = useState('')
   const [status, setStatus] = useState('')
   const [rows, setRows] = useState([])
-  const [total, setTotal] = useState(0)
   const [state, setState] = useState('loading')
   const [problem, setProblem] = useState('')
 
@@ -52,59 +43,48 @@ export function Reports({ t, lang, role, profile, stations, refreshKey }) {
     setProblem('')
     const [fromDate, toDate] = range()
     try {
-      const { rows: got, count } = await fetchOrders({
+      const data = await reportSummary({
         fromDate,
         toDate,
         stationId: stationId || undefined,
-        location: location || undefined,
-        statuses: status ? [status] : undefined,
-        page: 0,
-        pageSize: REPORT_CAP,
+        // A station's report is its completed work only.
+        status: isStation ? 'delivered' : status || undefined,
       })
-      setRows(got)
-      setTotal(count)
+      setRows(data)
       setState('ready')
     } catch (e) {
       setProblem(translateError(e, t))
       setState('error')
     }
-  }, [range, stationId, location, status, t])
+  }, [range, stationId, status, isStation, t])
 
   useEffect(() => {
     load()
   }, [load, refreshKey])
 
-  /**
-   * One line per day (and per station, when more than one is in view), so the
-   * table reads the way a paper log would.
-   */
-  const lines = useMemo(() => {
-    const map = new Map()
-    for (const o of rows) {
-      // A station only reports work it actually completed.
-      if (isStation && o.status !== 'delivered') continue
+  // The RPC already returns one line per day+station. When a location is
+  // selected the office keeps only its stations; the station filter narrows
+  // further. (Location is a client-side narrow because the RPC keys on station.)
+  const stationLocation = useMemo(() => {
+    const m = {}
+    for (const s of stations) m[s.id] = (s.location || '').trim()
+    return m
+  }, [stations])
 
-      const day = String(o.created_at).slice(0, 10)
-      const key = isStation ? day : `${day}|${o.station_id}`
-      const entry = map.get(key) || {
-        day,
-        station: lang === 'ku' ? o.station_name_ku : o.station_name_en,
-        code: o.station_code,
-        orders: 0,
-        loaded: 0,
-        onWay: 0,
-        received: 0,
-      }
-      entry.orders += 1
-      entry.loaded += loadedOf(o)
-      entry.onWay += onWayOf(o)
-      entry.received += receivedOf(o)
-      map.set(key, entry)
-    }
-    return [...map.values()].sort(
-      (a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : a.station.localeCompare(b.station)),
-    )
-  }, [rows, isStation, lang])
+  const lines = useMemo(() => {
+    let out = rows.map((r) => ({
+      day: r.day,
+      station: lang === 'ku' ? r.station_name_ku : r.station_name_en,
+      code: r.station_code,
+      station_id: r.station_id,
+      orders: isStation ? Number(r.delivered_orders) : Number(r.orders),
+      loaded: Number(r.loaded),
+      onWay: Number(r.on_way),
+      received: Number(r.received),
+    }))
+    if (location) out = out.filter((l) => stationLocation[l.station_id] === location)
+    return out
+  }, [rows, lang, isStation, location, stationLocation])
 
   const totals = useMemo(
     () =>
@@ -132,8 +112,6 @@ export function Reports({ t, lang, role, profile, stations, refreshKey }) {
     downloadCsv(`report-${isoDate(new Date())}.csv`, [header, ...body])
   }
 
-  // Location and station stack: choosing a location narrows the stations
-  // offered, and both narrow on top of whatever period is selected.
   const locations = locationsOf(stations)
   const stationChoices = location
     ? stations.filter((s) => (s.location || '').trim() === location)
@@ -287,8 +265,6 @@ export function Reports({ t, lang, role, profile, stations, refreshKey }) {
               </tfoot>
             </table>
           </div>
-
-          {total > rows.length && <div className="notice">{t.moreExist}</div>}
 
           <button className="btn btn-ghost more" onClick={exportCsv}>
             {t.exportCsv}

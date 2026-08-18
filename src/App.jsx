@@ -99,15 +99,22 @@ export function App() {
 
   const refresh = useCallback(() => setRefreshKey((n) => n + 1), [])
 
-  // Live updates: any change to orders re-runs whatever list is on screen.
+  // Live updates. A single action writes the order row plus event rows, so the
+  // events arrive in a burst; debounce them into one quiet refresh rather than
+  // several full refetches, which would otherwise thrash the list on screen.
   useEffect(() => {
     if (!session) return
+    let timer
+    const bump = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => setRefreshKey((n) => n + 1), 400)
+    }
     const channel = supabase
       .channel('orders-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, bump)
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [session, refresh])
+    return () => { clearTimeout(timer); supabase.removeChannel(channel) }
+  }, [session])
 
   const role = profile?.role
   const tabs = useMemo(() => NAV[role] || [], [role])
@@ -141,7 +148,7 @@ export function App() {
           <Empty title={t.loadFailed} msg={t.checkNet} />
           <button className="btn btn-go wide" onClick={loadReference}>{t.retry}</button>
           <div className="center">
-            <button className="btn btn-ghost btn-sm" onClick={() => supabase.auth.signOut()}>
+            <button className="btn btn-ghost btn-sm" onClick={() => supabase.auth.signOut().catch(() => {})}>
               {t.signOut}
             </button>
           </div>
@@ -177,6 +184,7 @@ export function App() {
     }
     return (
       <OrdersList
+        key={key}
         t={t}
         lang={lang}
         role={role}
@@ -208,7 +216,7 @@ export function App() {
           <button className="tbtn" onClick={() => setShowAccount(true)} aria-label={t.tabAccount}>
             {t.tabAccount}
           </button>
-          <button className="tbtn" onClick={() => supabase.auth.signOut()}>{t.signOut}</button>
+          <button className="tbtn" onClick={() => supabase.auth.signOut().catch(() => {})}>{t.signOut}</button>
         </div>
       </header>
 

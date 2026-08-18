@@ -31,6 +31,8 @@ export function Users({ t, lang, stations, reload, meId }) {
   const [editing, setEditing] = useState(null)
   const [draft, setDraft] = useState({ role: 'station', station_id: '', is_active: true })
   const [saving, setSaving] = useState(false)
+  const [removing, setRemoving] = useState(false)
+  const [savingPw, setSavingPw] = useState(false)
 
   const list = useCallback(async () => {
     setState('loading')
@@ -84,20 +86,26 @@ export function Users({ t, lang, stations, reload, meId }) {
   }
 
   const remove = async (u) => {
+    if (removing) return
+    setRemoving(true)
     setProblem('')
-    setConfirming(null)
     try {
       await rpc('admin_delete_user', { p_user: u.id })
+      setConfirming(null)
       await list()
       reload()
     } catch (e) {
       setProblem(translateError(e, t))
+    } finally {
+      setRemoving(false)
     }
   }
 
   const savePassword = async () => {
+    if (savingPw) return
     setProblem('')
     if (newPw.length < 6) return setProblem(t.pwShort)
+    setSavingPw(true)
     try {
       await rpc('admin_set_password', { p_user: resetting.id, p_password: newPw })
       setResetting(null)
@@ -105,6 +113,8 @@ export function Users({ t, lang, stations, reload, meId }) {
       setDone(t.pwChanged)
     } catch (e) {
       setProblem(translateError(e, t))
+    } finally {
+      setSavingPw(false)
     }
   }
 
@@ -270,7 +280,7 @@ export function Users({ t, lang, stations, reload, meId }) {
           </div>
           <div className="acts">
             <button className="btn btn-ghost" onClick={() => setResetting(null)}>{t.cancel}</button>
-            <button className="btn btn-go" disabled={newPw.length < 6} onClick={savePassword}>{t.save}</button>
+            <button className="btn btn-go" disabled={savingPw || newPw.length < 6} onClick={savePassword}>{savingPw ? t.saving : t.save}</button>
           </div>
         </Sheet>
       )}
@@ -280,7 +290,7 @@ export function Users({ t, lang, stations, reload, meId }) {
           <p className="lede">{t.reallyDelete}</p>
           <div className="acts">
             <button className="btn btn-ghost" onClick={() => setConfirming(null)}>{t.cancel}</button>
-            <button className="btn btn-no" onClick={() => remove(confirming)}>{t.delete}</button>
+            <button className="btn btn-no" disabled={removing} onClick={() => remove(confirming)}>{removing ? t.saving : t.delete}</button>
           </div>
         </Sheet>
       )}
@@ -499,13 +509,18 @@ export function Fuels({ t, lang, products, reload }) {
     }
   }
 
+  const [toggling, setToggling] = useState(null)
   const toggle = async (p) => {
+    if (toggling) return
+    setToggling(p.id)
     setProblem('')
     try {
       await write(supabase.from('products').update({ is_active: !p.is_active }).eq('id', p.id))
       reload()
     } catch (e) {
       setProblem(translateError(e, t))
+    } finally {
+      setToggling(null)
     }
   }
 
@@ -542,7 +557,11 @@ export function Fuels({ t, lang, products, reload }) {
             <span className={'tag ' + (p.is_active ? 'on' : 'off')}>
               {p.is_active ? t.active : t.off}
             </span>
-            <button className="btn btn-ghost btn-sm" onClick={() => toggle(p)}>
+            <button
+              className="btn btn-ghost btn-sm"
+              disabled={toggling === p.id}
+              onClick={() => toggle(p)}
+            >
               {p.is_active ? t.turnOff : t.turnOn}
             </button>
           </div>

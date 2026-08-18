@@ -30,12 +30,18 @@ export function Rail({ status, t }) {
  */
 export function Sheet({ title, lede, children, onClose }) {
   const panel = useRef(null)
+  // Keep the latest onClose reachable without making the mount effect depend on
+  // its identity. The parent re-renders on every realtime event and passes a
+  // fresh onClose each time; if the effect below re-ran on that, it would
+  // re-grab focus and re-lock scroll mid-typing. It must run exactly once.
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onClose()
+        onCloseRef.current()
         return
       }
       if (e.key !== 'Tab' || !panel.current) return
@@ -65,10 +71,12 @@ export function Sheet({ title, lede, children, onClose }) {
       document.body.style.overflow = overflow
       if (previous instanceof HTMLElement) previous.focus()
     }
-  }, [onClose])
+    // Intentionally empty: set up once on open, tear down once on close.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
-    <div className="scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="scrim" onMouseDown={(e) => e.target === e.currentTarget && onCloseRef.current()}>
       <div className="sheet" role="dialog" aria-modal="true" aria-label={title} ref={panel}>
         <h3>{title}</h3>
         {lede && <p className="lede">{lede}</p>}
