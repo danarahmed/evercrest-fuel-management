@@ -437,3 +437,69 @@ html[dir="rtl"] .stat .k{text-transform:none;letter-spacing:0;font-size:11.5px}
 .sect h3{margin:0;font-size:11.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink3);font-weight:600}
 html[dir="rtl"] .sect h3{text-transform:none;letter-spacing:0;font-size:13px}
 .sect .rule{flex:1;height:1px;background:var(--line)}
+
+/* ---------- report: headline numbers ---------- */
+.kpis{display:flex;gap:9px;margin-bottom:12px}
+.kpi{
+  flex:1;min-width:0;background:var(--card);border-radius:12px;box-shadow:var(--shadow);
+  padding:12px 13px;display:flex;flex-direction:column;gap:2px;
+  border-top:3px solid var(--line);
+}
+.kpi.k-lod{border-top-color:var(--sky)}
+.kpi.k-way{border-top-color:var(--amber)}
+.kpi.k-dlv{border-top-color:var(--go)}
+.kpi .kl{
+  font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+html[dir="rtl"] .kpi .kl{letter-spacing:0;text-transform:none;font-size:11.5px}
+.kpi .kv{font-family:var(--mono);font-size:21px;font-weight:600;letter-spacing:-.02em;line-height:1.15}
+.kpi .ku{font-family:var(--mono);font-size:10.5px;color:var(--ink3)}
+.kpi.k-lod .kv{color:var(--sky)}
+.kpi.k-way .kv{color:var(--amber)}
+.kpi.k-dlv .kv{color:var(--go)}
+@media(max-width:430px){.kpi{padding:10px}.kpi .kv{font-size:18px}}
+
+/* ---------- report: the table ---------- */
+.tablewrap{
+  background:var(--card);border-radius:12px;box-shadow:var(--shadow);
+  overflow-x:auto;margin-bottom:12px;
+}
+.rtable{width:100%;border-collapse:collapse;font-size:13px}
+.rtable th{
+  text-align:start;font-size:10.5px;font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--ink3);padding:10px 11px;white-space:nowrap;
+  border-bottom:1px solid var(--line);
+}
+html[dir="rtl"] .rtable th{letter-spacing:0;text-transform:none;font-size:11.5px}
+.rtable td{padding:10px 11px;border-bottom:1px solid var(--line2);vertical-align:middle}
+.rtable tbody tr:last-child td{border-bottom:0}
+.rtable .n{text-align:end;font-family:var(--mono);white-space:nowrap}
+.rtable td.n{font-weight:600}
+.rtable td.d{color:var(--ink2);white-space:nowrap;font-family:var(--mono);font-size:12.5px}
+html[dir="rtl"] .rtable td.d{font-family:var(--sans)}
+.rtable td.where{min-width:0}
+.rtable .st{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rtable .sc{display:block;font-size:11px;color:var(--ink3);white-space:nowrap}
+.rtable th,.rtable td{padding:9px 8px}
+.rtable th:first-child,.rtable td:first-child{padding-inline-start:11px}
+.rtable th:last-child,.rtable td:last-child{padding-inline-end:11px}
+.rtable td.way{color:var(--amber)}
+.rtable td.dlv{color:var(--go)}
+.rtable tfoot td{
+  border-top:2px solid var(--line);border-bottom:0;
+  font-weight:700;background:var(--line2);
+}
+.rtable tfoot td.d{color:var(--ink);font-family:var(--sans);font-weight:700}
+
+/* Small phones: the three amounts must fit without sideways scrolling. */
+@media(max-width:430px){
+  .rtable{font-size:12.5px}
+  .rtable th,.rtable td{padding:8px 4px}
+  .rtable th:first-child,.rtable td:first-child{padding-inline-start:8px}
+  .rtable th:last-child,.rtable td:last-child{padding-inline-end:8px}
+  .rtable th{font-size:9.5px;letter-spacing:.03em}
+  html[dir="rtl"] .rtable th{font-size:11px}
+  .rtable .sc{font-size:10px}
+  .rtable .st{font-size:12.5px}
+}

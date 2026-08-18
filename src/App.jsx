@@ -12,15 +12,18 @@ import { ActionSheet } from './components/ActionSheet'
 import { Empty, Spinner } from './components/common'
 
 /**
- * Tabs per role. "mine" is present for every account — that is the screen a
- * person lands on to see and manage their own work, which the previous build
- * only offered to station users (and even then as a 7 day report).
+ * Tabs per role.
+ *
+ * The office roles work from queues and the report, so a personal "my orders"
+ * list was just a fourth way to look at the same board. Only the station keeps
+ * it, because for them it is not a filter — it is how they follow their own
+ * requests from pending through to delivered.
  */
 const NAV = {
-  station: ['mine', 'new'],
-  manager: ['queue', 'mine', 'board', 'reports'],
-  storage: ['toload', 'transit', 'mine', 'board'],
-  admin: ['board', 'mine', 'new', 'reports', 'setup'],
+  station: ['new', 'mine', 'reports'],
+  manager: ['queue', 'board', 'reports'],
+  storage: ['toload', 'transit', 'board', 'reports'],
+  admin: ['board', 'new', 'reports', 'setup'],
 }
 
 const TAB_LABEL = {
@@ -225,8 +228,8 @@ export function App() {
         )}
         {current === 'reports' && (
           <Reports
-            t={t} lang={lang} role={role} stations={activeStations}
-            products={activeProducts} refreshKey={refreshKey}
+            t={t} lang={lang} role={role} profile={profile}
+            stations={activeStations} refreshKey={refreshKey}
           />
         )}
         {['mine', 'board', 'queue', 'toload', 'transit'].includes(current) && listFor(current)}
