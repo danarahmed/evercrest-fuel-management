@@ -161,19 +161,55 @@ const EXT_BY_TYPE = {
  * delete is best effort: storage only allows it while the order is unconfirmed,
  * so a manifest attached to a real delivery can never be erased from the app.
  */
-export async function confirmDeliveryWithManifest({ order, file, received, manifestNo, note }) {
+/**
+ * Upload a manifest into the order's own station folder.
+ *
+ * The folder is what makes the document visible to the receiving station and
+ * invisible to every other one, so the path is derived from the order rather
+ * than from whoever is uploading.
+ */
+async function uploadManifest(order, file, prefix) {
   const type = file.type
   if (!ALLOWED_MANIFEST_TYPES.includes(type)) throw new Error('manifest-type')
   if (file.size > MAX_MANIFEST_BYTES) throw new Error('manifest-size')
 
-  const ext = EXT_BY_TYPE[type]
-  const path = `${order.station_id}/${order.id}-${Date.now()}.${ext}`
-
+  const path = `${order.station_id}/${prefix}${order.id}-${Date.now()}.${EXT_BY_TYPE[type]}`
   const up = await supabase.storage.from('manifests').upload(path, file, {
     contentType: type,
     upsert: false,
   })
   if (up.error) throw new Error(errText(up.error, 'upload-failed'))
+  return path
+}
+
+/**
+ * Mark an order loaded, optionally attaching the manifest the yard issued.
+ *
+ * The file goes into the receiving station's folder, so the station can open
+ * it as soon as the truck is on the way.
+ */
+export async function markLoadedWithManifest({
+  order, file, quantity, truck, driver, note, manifestNo,
+}) {
+  const path = file ? await uploadManifest(order, file, 'load-') : null
+  try {
+    await rpc('mark_loaded', {
+      p_order: order.id,
+      p_loaded_quantity: quantity,
+      p_truck: truck,
+      p_driver: driver,
+      p_note: note,
+      p_manifest_path: path,
+      p_manifest_no: manifestNo,
+    })
+  } catch (e) {
+    if (path) await supabase.storage.from('manifests').remove([path]).catch(() => {})
+    throw e
+  }
+}
+
+export async function confirmDeliveryWithManifest({ order, file, received, manifestNo, note }) {
+  const path = await uploadManifest(order, file, '')
 
   try {
     await rpc('confirm_delivery', {

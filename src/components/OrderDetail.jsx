@@ -37,11 +37,11 @@ export function OrderDetail({ order, t, lang, role, onClose, onAct }) {
     return () => { stale = true }
   }, [order.id])
 
-  const openManifest = async () => {
+  const openManifest = async (path) => {
     setProblem('')
     const tab = window.open('', '_blank', 'noopener,noreferrer')
     try {
-      const url = await signedManifestUrl(order.manifest_path)
+      const url = await signedManifestUrl(path)
       if (tab) tab.location = url
       else window.location.assign(url)
     } catch {
@@ -85,6 +85,7 @@ export function OrderDetail({ order, t, lang, role, onClose, onAct }) {
             <Fact label={t.loadedQty} value={order.loaded_quantity != null ? `${num(order.loaded_quantity)} ${unit}` : ''} />
             <Fact label={t.truckNo} value={order.truck_no} />
             <Fact label={t.driver} value={order.driver_name} />
+            <Fact label={t.loadManifestNo} value={order.load_manifest_no} />
           </>
         )}
 
@@ -132,8 +133,21 @@ export function OrderDetail({ order, t, lang, role, onClose, onAct }) {
         {can.cancel && (
           <button className="btn btn-ghost btn-sm" onClick={() => onAct('cancel', order)}>{t.cancelOrder}</button>
         )}
+        {order.load_manifest_path && (
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => openManifest(order.load_manifest_path)}
+          >
+            {t.viewLoadManifest}
+          </button>
+        )}
         {order.manifest_path && (
-          <button className="btn btn-ghost btn-sm" onClick={openManifest}>{t.viewManifest}</button>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => openManifest(order.manifest_path)}
+          >
+            {t.viewManifest}
+          </button>
         )}
         <button className="btn btn-ghost btn-sm" onClick={onClose}>{t.close}</button>
       </div>

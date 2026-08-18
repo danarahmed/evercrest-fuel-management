@@ -1,6 +1,12 @@
 import { useState } from 'react'
 import { Sheet, ErrorBox } from './common'
-import { rpc, confirmDeliveryWithManifest, MAX_MANIFEST_BYTES, ALLOWED_MANIFEST_TYPES } from '../lib/api'
+import {
+  rpc,
+  markLoadedWithManifest,
+  confirmDeliveryWithManifest,
+  MAX_MANIFEST_BYTES,
+  ALLOWED_MANIFEST_TYPES,
+} from '../lib/api'
 import { num, orderNo } from '../lib/util'
 
 const MAX_QUANTITY = 1_000_000
@@ -66,12 +72,15 @@ export function ActionSheet({ act, order, t, onClose, onDone }) {
           p_note: form.note,
         })
       } else if (act === 'load') {
-        await rpc('mark_loaded', {
-          p_order: order.id,
-          p_loaded_quantity: qtyValue,
-          p_truck: form.truck,
-          p_driver: form.driver,
-          p_note: form.note,
+        if (file) setUploading(true)
+        await markLoadedWithManifest({
+          order,
+          file,
+          quantity: qtyValue,
+          truck: form.truck,
+          driver: form.driver,
+          note: form.note,
+          manifestNo: form.manifestNo,
         })
       } else if (act === 'cancel') {
         await rpc('cancel_order', { p_order: order.id, p_note: form.note })
@@ -118,10 +127,13 @@ export function ActionSheet({ act, order, t, onClose, onDone }) {
         </div>
       )}
 
-      {act === 'deliver' && (
+      {(act === 'deliver' || act === 'load') && (
         <>
           <div className="field">
-            <label htmlFor="act-file">{t.attachManifest}</label>
+            <label htmlFor="act-file">
+              {act === 'load' ? t.attachLoadManifest : t.attachManifest}
+              {act === 'load' && <span className="hint"> · {t.optional}</span>}
+            </label>
             <input
               id="act-file"
               className="inp"
@@ -133,7 +145,8 @@ export function ActionSheet({ act, order, t, onClose, onDone }) {
           </div>
           <div className="field">
             <label htmlFor="act-mno">
-              {t.manifestNo} <span className="hint">· {t.optional}</span>
+              {act === 'load' ? t.loadManifestNo : t.manifestNo}{' '}
+              <span className="hint">· {t.optional}</span>
             </label>
             <input id="act-mno" className="inp" value={form.manifestNo} onChange={set('manifestNo')} />
           </div>
