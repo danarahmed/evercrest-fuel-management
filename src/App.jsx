@@ -234,7 +234,7 @@ export function App() {
         )}
         {current === 'fuels' && (
           <>
-            <StationList t={t} lang={lang} stations={stations} reload={loadReference} />
+            <StationList t={t} reload={loadReference} />
             <Fuels t={t} lang={lang} products={products} reload={loadReference} />
           </>
         )}

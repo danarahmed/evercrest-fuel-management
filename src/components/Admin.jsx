@@ -404,7 +404,7 @@ export function NewUser({ t, lang, stations, reload }) {
 }
 
 /** Stations: create one, see the rest, take one out of service. */
-export function StationList({ t, lang, stations, reload }) {
+export function StationList({ t, reload }) {
   const [problem, setProblem] = useState('')
   const [form, setForm] = useState(BLANK_STATION)
   const [busy, setBusy] = useState(false)
@@ -431,16 +431,6 @@ export function StationList({ t, lang, stations, reload }) {
       setProblem(translateError(e, t))
     } finally {
       setBusy(false)
-    }
-  }
-
-  const toggle = async (s) => {
-    setProblem('')
-    try {
-      await write(supabase.from('stations').update({ is_active: !s.is_active }).eq('id', s.id))
-      reload()
-    } catch (e) {
-      setProblem(translateError(e, t))
     }
   }
 
@@ -473,22 +463,6 @@ export function StationList({ t, lang, stations, reload }) {
         {busy ? t.saving : t.addStation}
       </button>
 
-      <div className="sect"><h3>{t.tabStations}</h3><div className="rule" /></div>
-      {!stations.length && <Empty title={t.emptyStations} msg={t.emptyStationsP} />}
-      {stations.map((s) => (
-        <div className="lrow" key={s.id}>
-          <div className="grow">
-            <b>{lang === 'ku' ? s.name_ku : s.name_en}</b>
-            <small>{s.code} · {s.location}</small>
-          </div>
-          <span className={'tag ' + (s.is_active ? 'on' : 'off')}>
-            {s.is_active ? t.active : t.off}
-          </span>
-          <button className="btn btn-ghost btn-sm" onClick={() => toggle(s)}>
-            {s.is_active ? t.turnOff : t.turnOn}
-          </button>
-        </div>
-      ))}
     </div>
   )
 }
