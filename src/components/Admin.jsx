@@ -299,6 +299,7 @@ export function Users({ t, lang, stations, reload, meId }) {
 export function NewUser({ t, lang, stations, reload }) {
   const [form, setForm] = useState(BLANK_USER)
   const [station, setStation] = useState(BLANK_STATION)
+  const [stationMode, setStationMode] = useState('existing')
   const [problem, setProblem] = useState('')
   const [done, setDone] = useState('')
   const [busy, setBusy] = useState(false)
@@ -306,7 +307,7 @@ export function NewUser({ t, lang, stations, reload }) {
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
   const setSt = (key) => (e) => setStation((s2) => ({ ...s2, [key]: e.target.value }))
 
-  const makingStation = form.station_id === 'new'
+  const makingStation = form.role === 'station' && stationMode === 'new'
 
   const create = async () => {
     if (busy) return
@@ -317,12 +318,13 @@ export function NewUser({ t, lang, stations, reload }) {
 
     let stationId = null
     if (form.role === 'station') {
-      if (!form.station_id) return setProblem(t.pickStation)
       if (makingStation) {
         if (!station.code.trim() || !station.name_en.trim()) {
           return setProblem(t.code + ' + ' + t.nameEn)
         }
         if (!station.location.trim()) return setProblem(t.locationReq)
+      } else if (!form.station_id) {
+        return setProblem(t.pickStation)
       }
     }
 
@@ -356,6 +358,7 @@ export function NewUser({ t, lang, stations, reload }) {
       setDone(t.userCreated)
       setForm(BLANK_USER)
       setStation(BLANK_STATION)
+      setStationMode('existing')
       reload()
     } catch (e) {
       setProblem(translateError(e, t))
@@ -365,6 +368,7 @@ export function NewUser({ t, lang, stations, reload }) {
   }
 
   return (
+    <>
     <div className="panel">
       <h2>{t.addUser}</h2>
       <ErrorBox>{problem}</ErrorBox>
@@ -411,17 +415,35 @@ export function NewUser({ t, lang, stations, reload }) {
       {form.role === 'station' && (
         <>
           <div className="field">
-            <label htmlFor="u-station">{t.station}</label>
-            <select id="u-station" className="inp" value={form.station_id} onChange={set('station_id')}>
-              <option value="">—</option>
-              {stations.map((s2) => (
-                <option key={s2.id} value={s2.id}>{lang === 'ku' ? s2.name_ku : s2.name_en}</option>
-              ))}
-              <option value="new">{t.newStationOpt}</option>
-            </select>
+            <label>{t.station}</label>
+            <div className="seg">
+              <button
+                type="button"
+                aria-pressed={stationMode === 'existing'}
+                onClick={() => setStationMode('existing')}
+              >
+                {t.existingStation}
+              </button>
+              <button
+                type="button"
+                aria-pressed={stationMode === 'new'}
+                onClick={() => setStationMode('new')}
+              >
+                {t.newStation}
+              </button>
+            </div>
           </div>
 
-          {makingStation && (
+          {stationMode === 'existing' ? (
+            <div className="field">
+              <select id="u-station" className="inp" value={form.station_id} onChange={set('station_id')}>
+                <option value="">—</option>
+                {stations.map((s2) => (
+                  <option key={s2.id} value={s2.id}>{lang === 'ku' ? s2.name_ku : s2.name_en}</option>
+                ))}
+              </select>
+            </div>
+          ) : (
             <div className="subform">
               <div className="row">
                 <div className="field">
@@ -457,6 +479,12 @@ export function NewUser({ t, lang, stations, reload }) {
         {busy ? t.saving : t.addUser}
       </button>
     </div>
+
+    {/* Everything about stations, only while a station account is being made. */}
+    {form.role === 'station' && (
+      <StationList t={t} lang={lang} stations={stations} reload={reload} />
+    )}
+    </>
   )
 }
 
