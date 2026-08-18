@@ -24,7 +24,7 @@ const NAV = {
   station: ['new', 'mine', 'reports'],
   manager: ['queue', 'board', 'reports'],
   storage: ['toload', 'transit', 'board', 'reports'],
-  admin: ['board', 'new', 'reports', 'users', 'newuser', 'stations', 'fuels'],
+  admin: ['new', 'reports', 'users', 'newuser', 'fuels'],
 }
 
 const TAB_LABEL = {
@@ -36,8 +36,7 @@ const TAB_LABEL = {
   board: 'tabAll',
   reports: 'tabReports',
   users: 'tabUsers',
-  newuser: 'tabNewUser',
-  stations: 'tabStations',
+  newuser: 'tabAddNew',
   fuels: 'tabFuels',
 }
 
@@ -231,10 +230,10 @@ export function App() {
           <Users t={t} lang={lang} stations={stations} reload={loadReference} meId={profile.id} />
         )}
         {current === 'newuser' && (
-          <NewUser t={t} lang={lang} stations={stations} reload={loadReference} />
-        )}
-        {current === 'stations' && (
-          <Stations t={t} lang={lang} stations={stations} reload={loadReference} />
+          <>
+            <NewUser t={t} lang={lang} stations={stations} reload={loadReference} />
+            <Stations t={t} lang={lang} stations={stations} reload={loadReference} />
+          </>
         )}
         {current === 'fuels' && (
           <Fuels t={t} lang={lang} products={products} reload={loadReference} />

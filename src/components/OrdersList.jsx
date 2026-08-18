@@ -145,7 +145,7 @@ export function OrdersList({
               aria-label={t.search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            {role !== 'station' && locations.length > 1 && (
+            {role !== 'station' && locations.length > 0 && (
               <select
                 className="inp"
                 value={location}
@@ -161,7 +161,7 @@ export function OrdersList({
                 ))}
               </select>
             )}
-            {role !== 'station' && stationChoices.length > 1 && (
+            {role !== 'station' && stations.length > 0 && (
               <select
                 className="inp"
                 value={stationId}

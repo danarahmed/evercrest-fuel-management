@@ -394,6 +394,8 @@ export function NewUser({ t, lang, stations, reload }) {
   )
 }
 
+const BLANK_STATION = { code: '', name_en: '', name_ku: '', location: '', phone: '' }
+
 export function Stations({ t, lang, stations, reload }) {
   const [form, setForm] = useState(BLANK_STATION)
   const [problem, setProblem] = useState('')

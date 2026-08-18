@@ -23,11 +23,13 @@ const receivedOf = (o) =>
   o.status === 'delivered' ? Number(o.received_quantity ?? o.loaded_quantity ?? o.quantity) : 0
 
 const PERIODS = ['pToday', 'p7', 'p30', 'p90', 'allTime']
+const STATUS_CHOICES = ['pending', 'approved', 'loaded', 'delivered', 'rejected', 'cancelled']
 
 export function Reports({ t, lang, role, profile, stations, refreshKey }) {
   const [period, setPeriod] = useState('p30')
   const [stationId, setStationId] = useState('')
   const [location, setLocation] = useState('')
+  const [status, setStatus] = useState('')
   const [rows, setRows] = useState([])
   const [total, setTotal] = useState(0)
   const [state, setState] = useState('loading')
@@ -55,6 +57,7 @@ export function Reports({ t, lang, role, profile, stations, refreshKey }) {
         toDate,
         stationId: stationId || undefined,
         location: location || undefined,
+        statuses: status ? [status] : undefined,
         page: 0,
         pageSize: REPORT_CAP,
       })
@@ -65,7 +68,7 @@ export function Reports({ t, lang, role, profile, stations, refreshKey }) {
       setProblem(translateError(e, t))
       setState('error')
     }
-  }, [range, stationId, location, t])
+  }, [range, stationId, location, status, t])
 
   useEffect(() => {
     load()
@@ -151,9 +154,9 @@ export function Reports({ t, lang, role, profile, stations, refreshKey }) {
             </button>
           ))}
         </div>
-        {!isStation && (locations.length > 1 || stationChoices.length > 1) && (
+        {!isStation && (
           <div className="fsel">
-            {locations.length > 1 && (
+            {locations.length > 0 && (
               <select
                 className="inp"
                 value={location}
@@ -169,21 +172,31 @@ export function Reports({ t, lang, role, profile, stations, refreshKey }) {
                 ))}
               </select>
             )}
-            {stationChoices.length > 1 && (
-              <select
-                className="inp"
-                value={stationId}
-                aria-label={t.station}
-                onChange={(e) => setStationId(e.target.value)}
-              >
-                <option value="">{t.allStations}</option>
-                {stationChoices.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {lang === 'ku' ? s.name_ku : s.name_en}
-                  </option>
-                ))}
-              </select>
-            )}
+            <select
+              className="inp"
+              value={stationId}
+              aria-label={t.station}
+              onChange={(e) => setStationId(e.target.value)}
+            >
+              <option value="">{t.allStations}</option>
+              {stationChoices.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {lang === 'ku' ? s.name_ku : s.name_en}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="inp"
+              value={status}
+              aria-label={t.fAll}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              <option value="">{t.allStatuses}</option>
+              {STATUS_CHOICES.map((st) => (
+                <option key={st} value={st}>{t['st_' + st]}</option>
+              ))}
+            </select>
           </div>
         )}
       </div>
