@@ -6,7 +6,7 @@ import { SignIn, Inactive } from './components/Auth'
 import { OrdersList } from './components/OrdersList'
 import { NewOrder } from './components/NewOrder'
 import { Reports } from './components/Reports'
-import { Users, Stations, Fuels } from './components/Admin'
+import { Users, NewUser, Stations, Fuels } from './components/Admin'
 import { Account } from './components/Account'
 import { ActionSheet } from './components/ActionSheet'
 import { Empty, Spinner } from './components/common'
@@ -24,7 +24,7 @@ const NAV = {
   station: ['new', 'mine', 'reports'],
   manager: ['queue', 'board', 'reports'],
   storage: ['toload', 'transit', 'board', 'reports'],
-  admin: ['board', 'new', 'reports', 'users', 'stations', 'fuels'],
+  admin: ['board', 'new', 'reports', 'users', 'newuser', 'stations', 'fuels'],
 }
 
 const TAB_LABEL = {
@@ -36,6 +36,7 @@ const TAB_LABEL = {
   board: 'tabAll',
   reports: 'tabReports',
   users: 'tabUsers',
+  newuser: 'tabNewUser',
   stations: 'tabStations',
   fuels: 'tabFuels',
 }
@@ -228,6 +229,9 @@ export function App() {
         )}
         {current === 'users' && (
           <Users t={t} lang={lang} stations={stations} reload={loadReference} meId={profile.id} />
+        )}
+        {current === 'newuser' && (
+          <NewUser t={t} lang={lang} stations={stations} reload={loadReference} />
         )}
         {current === 'stations' && (
           <Stations t={t} lang={lang} stations={stations} reload={loadReference} />

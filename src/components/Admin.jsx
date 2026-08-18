@@ -9,20 +9,26 @@ const ROLES = ['admin', 'manager', 'storage', 'station']
 
 const BLANK_USER = { username: '', password: '', full_name: '', role: 'station', station_id: '', phone: '' }
 
+/**
+ * Existing accounts: who exists, what they may do, and whether they are on.
+ *
+ * Creating an account lives on its own tab — the everyday job here is finding
+ * someone and changing their role or switching them off, and a long create
+ * form underneath only got in the way of that.
+ */
 export function Users({ t, lang, stations, reload, meId }) {
   const [users, setUsers] = useState([])
   const [roleFilter, setRoleFilter] = useState('')
   const [userSearch, setUserSearch] = useState('')
   const [state, setState] = useState('loading')
-  const [form, setForm] = useState(BLANK_USER)
   const [problem, setProblem] = useState('')
   const [done, setDone] = useState('')
-  const [busy, setBusy] = useState(false)
   const [resetting, setResetting] = useState(null)
   const [newPw, setNewPw] = useState('')
   const [confirming, setConfirming] = useState(null)
-
-  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
+  const [editing, setEditing] = useState(null)
+  const [draft, setDraft] = useState({ role: 'station', station_id: '', is_active: true })
+  const [saving, setSaving] = useState(false)
 
   const list = useCallback(async () => {
     setState('loading')
@@ -39,41 +45,39 @@ export function Users({ t, lang, stations, reload, meId }) {
     list()
   }, [list])
 
-  const create = async () => {
-    if (busy) return
+  const openEdit = (u) => {
     setProblem('')
     setDone('')
-    if (!form.username.trim()) return setProblem(t.username)
-    if (form.password.length < 6) return setProblem(t.pwShort)
-    if (form.role === 'station' && !form.station_id) return setProblem(t.noStationFirst)
-    setBusy(true)
+    setDraft({ role: u.role, station_id: u.station_id || '', is_active: u.is_active })
+    setEditing(u)
+  }
+
+  const saveEdit = async () => {
+    if (saving) return
+    setProblem('')
+    if (draft.role === 'station' && !draft.station_id) return setProblem(t.pickStation)
+    setSaving(true)
     try {
-      await rpc('admin_create_user', {
-        p_username: form.username,
-        p_password: form.password,
-        p_full_name: form.full_name || form.username,
-        p_role: form.role,
-        p_station: form.role === 'station' ? form.station_id : null,
-        p_phone: form.phone || null,
-      })
-      setDone(t.userCreated)
-      setForm(BLANK_USER)
+      await write(
+        supabase
+          .from('profiles')
+          .update({
+            role: draft.role,
+            // a station account is the only one tied to a station; clearing it
+            // otherwise stops a stale link deciding what they can see
+            station_id: draft.role === 'station' ? draft.station_id : null,
+            is_active: draft.is_active,
+          })
+          .eq('id', editing.id),
+      )
+      setEditing(null)
+      setDone(t.savedOk)
       await list()
       reload()
     } catch (e) {
       setProblem(translateError(e, t))
     } finally {
-      setBusy(false)
-    }
-  }
-
-  const toggle = async (u) => {
-    setProblem('')
-    try {
-      await write(supabase.from('profiles').update({ is_active: !u.is_active }).eq('id', u.id))
-      await list()
-    } catch (e) {
-      setProblem(translateError(e, t))
+      setSaving(false)
     }
   }
 
@@ -102,8 +106,13 @@ export function Users({ t, lang, stations, reload, meId }) {
     }
   }
 
-  // Counts come from the whole list, not the filtered one, so the tabs keep
-  // showing how many of each role exist while you are looking at one of them.
+  const stationName = (id) => {
+    const s = stations.find((x) => x.id === id)
+    return s ? (lang === 'ku' ? s.name_ku : s.name_en) : ''
+  }
+
+  // Counts come from the whole list, so they keep telling you how many of each
+  // role exist while you are looking at just one of them.
   const roleCounts = ROLES.reduce(
     (acc, r) => ({ ...acc, [r]: users.filter((u) => u.role === r).length }),
     {},
@@ -117,11 +126,6 @@ export function Users({ t, lang, stations, reload, meId }) {
         (u.full_name || '').toLowerCase().includes(term) ||
         (u.username || '').toLowerCase().includes(term)),
   )
-
-  const stationName = (id) => {
-    const s = stations.find((x) => x.id === id)
-    return s ? (lang === 'ku' ? s.name_ku : s.name_en) : ''
-  }
 
   return (
     <>
@@ -147,6 +151,9 @@ export function Users({ t, lang, stations, reload, meId }) {
         />
       </div>
 
+      <ErrorBox>{problem}</ErrorBox>
+      <Ok>{done}</Ok>
+
       <div className="panel">
         {state === 'loading' && <Spinner label={t.loadingData} />}
         {state !== 'loading' && shown.length === 0 && (
@@ -158,7 +165,7 @@ export function Users({ t, lang, stations, reload, meId }) {
               <b>{u.full_name}</b>
               <small>
                 {u.username} · {t['r_' + u.role]}
-                {u.station_id ? ' · ' + stationName(u.station_id) : ''}
+                {u.role === 'station' && u.station_id ? ' · ' + stationName(u.station_id) : ''}
               </small>
             </div>
             <span className={'tag ' + (u.is_active ? 'on' : 'off')}>
@@ -168,8 +175,8 @@ export function Users({ t, lang, stations, reload, meId }) {
               <span className="tag on">{t.you}</span>
             ) : (
               <>
-                <button className="btn btn-ghost btn-sm" onClick={() => toggle(u)}>
-                  {u.is_active ? t.turnOff : t.turnOn}
+                <button className="btn btn-ghost btn-sm" onClick={() => openEdit(u)}>
+                  {t.editUser}
                 </button>
                 <button className="btn btn-ghost btn-sm" onClick={() => setResetting(u)}>
                   {t.resetPw}
@@ -183,74 +190,73 @@ export function Users({ t, lang, stations, reload, meId }) {
         ))}
       </div>
 
-      <div className="panel">
-        <h2>{t.addUser}</h2>
-        <ErrorBox>{problem}</ErrorBox>
-        <Ok>{done}</Ok>
+      {editing && (
+        <Sheet title={t.editUserTitle} lede={editing.full_name} onClose={() => setEditing(null)}>
+          <ErrorBox>{problem}</ErrorBox>
 
-        <div className="row">
           <div className="field">
-            <label htmlFor="u-name">{t.username}</label>
-            <input
-              id="u-name" className="inp" value={form.username}
-              autoCapitalize="none" autoCorrect="off" spellCheck="false"
-              onChange={set('username')}
-            />
+            <label>{t.role}</label>
+            <div className="seg">
+              {ROLES.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  aria-pressed={draft.role === r}
+                  onClick={() => setDraft((d) => ({ ...d, role: r }))}
+                >
+                  {t['r_' + r]}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="field">
-            <label htmlFor="u-pw">{t.password}</label>
-            <PasswordInput
-              id="u-pw" value={form.password} autoComplete="new-password" t={t}
-              onChange={(v) => setForm((f) => ({ ...f, password: v }))}
-            />
-          </div>
-        </div>
-        <p className="hint block">{t.credsHint}</p>
 
-        <div className="field">
-          <label htmlFor="u-full">{t.fullName}</label>
-          <input id="u-full" className="inp" value={form.full_name} onChange={set('full_name')} />
-        </div>
-
-        <div className="field">
-          <label>{t.role}</label>
-          <div className="seg">
-            {['station', 'manager', 'storage', 'admin'].map((r) => (
-              <button
-                key={r} type="button" aria-pressed={form.role === r}
-                onClick={() => setForm((f) => ({ ...f, role: r }))}
+          {draft.role === 'station' && (
+            <div className="field">
+              <label htmlFor="e-station">{t.station}</label>
+              <select
+                id="e-station"
+                className="inp"
+                value={draft.station_id}
+                onChange={(e) => setDraft((d) => ({ ...d, station_id: e.target.value }))}
               >
-                {t['r_' + r]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {form.role === 'station' && (
-          <div className="field">
-            <label htmlFor="u-station">{t.station}</label>
-            {stations.length ? (
-              <select id="u-station" className="inp" value={form.station_id} onChange={set('station_id')}>
                 <option value="">—</option>
-                {stations.map((s) => (
-                  <option key={s.id} value={s.id}>{lang === 'ku' ? s.name_ku : s.name_en}</option>
+                {stations.map((s2) => (
+                  <option key={s2.id} value={s2.id}>
+                    {lang === 'ku' ? s2.name_ku : s2.name_en}
+                  </option>
                 ))}
               </select>
-            ) : (
-              <div className="err">{t.noStationFirst}</div>
-            )}
+            </div>
+          )}
+
+          <div className="field">
+            <label>{t.accountActive}</label>
+            <div className="seg">
+              <button
+                type="button"
+                aria-pressed={draft.is_active}
+                onClick={() => setDraft((d) => ({ ...d, is_active: true }))}
+              >
+                {t.active}
+              </button>
+              <button
+                type="button"
+                aria-pressed={!draft.is_active}
+                onClick={() => setDraft((d) => ({ ...d, is_active: false }))}
+              >
+                {t.off}
+              </button>
+            </div>
           </div>
-        )}
 
-        <div className="field">
-          <label htmlFor="u-phone">{t.phone}</label>
-          <input id="u-phone" className="inp" type="tel" value={form.phone} onChange={set('phone')} />
-        </div>
-
-        <button className="btn btn-go wide" disabled={busy} onClick={create}>
-          {busy ? t.saving : t.addUser}
-        </button>
-      </div>
+          <div className="acts">
+            <button className="btn btn-ghost" onClick={() => setEditing(null)}>{t.cancel}</button>
+            <button className="btn btn-go" disabled={saving} onClick={saveEdit}>
+              {saving ? t.saving : t.save}
+            </button>
+          </div>
+        </Sheet>
+      )}
 
       {resetting && (
         <Sheet title={t.resetPw} lede={resetting.full_name} onClose={() => setResetting(null)}>
@@ -280,7 +286,113 @@ export function Users({ t, lang, stations, reload, meId }) {
   )
 }
 
-const BLANK_STATION = { code: '', name_en: '', name_ku: '', location: '', phone: '' }
+/** Creating an account: who they are, and what they may do. */
+export function NewUser({ t, lang, stations, reload }) {
+  const [form, setForm] = useState(BLANK_USER)
+  const [problem, setProblem] = useState('')
+  const [done, setDone] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
+
+  const create = async () => {
+    if (busy) return
+    setProblem('')
+    setDone('')
+    if (!form.username.trim()) return setProblem(t.username)
+    if (form.password.length < 6) return setProblem(t.pwShort)
+    if (form.role === 'station' && !form.station_id) return setProblem(t.pickStation)
+    setBusy(true)
+    try {
+      await rpc('admin_create_user', {
+        p_username: form.username,
+        p_password: form.password,
+        p_full_name: form.full_name || form.username,
+        p_role: form.role,
+        p_station: form.role === 'station' ? form.station_id : null,
+        p_phone: form.phone || null,
+      })
+      setDone(t.userCreated)
+      setForm(BLANK_USER)
+      reload()
+    } catch (e) {
+      setProblem(translateError(e, t))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="panel">
+      <h2>{t.addUser}</h2>
+      <ErrorBox>{problem}</ErrorBox>
+      <Ok>{done}</Ok>
+
+      <div className="row">
+        <div className="field">
+          <label htmlFor="u-name">{t.username}</label>
+          <input
+            id="u-name" className="inp" value={form.username}
+            autoCapitalize="none" autoCorrect="off" spellCheck="false"
+            onChange={set('username')}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="u-pw">{t.password}</label>
+          <PasswordInput
+            id="u-pw" value={form.password} autoComplete="new-password" t={t}
+            onChange={(v) => setForm((f) => ({ ...f, password: v }))}
+          />
+        </div>
+      </div>
+      <p className="hint block">{t.credsHint}</p>
+
+      <div className="field">
+        <label htmlFor="u-full">{t.fullName}</label>
+        <input id="u-full" className="inp" value={form.full_name} onChange={set('full_name')} />
+      </div>
+
+      <div className="field">
+        <label>{t.role}</label>
+        <div className="seg">
+          {['station', 'manager', 'storage', 'admin'].map((r) => (
+            <button
+              key={r} type="button" aria-pressed={form.role === r}
+              onClick={() => setForm((f) => ({ ...f, role: r }))}
+            >
+              {t['r_' + r]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {form.role === 'station' && (
+        <div className="field">
+          <label htmlFor="u-station">{t.station}</label>
+          {stations.length ? (
+            <select id="u-station" className="inp" value={form.station_id} onChange={set('station_id')}>
+              <option value="">—</option>
+              {stations.map((s) => (
+                <option key={s.id} value={s.id}>{lang === 'ku' ? s.name_ku : s.name_en}</option>
+              ))}
+            </select>
+          ) : (
+            <div className="err">{t.noStationFirst}</div>
+          )}
+        </div>
+      )}
+
+      <div className="field">
+        <label htmlFor="u-phone">{t.phone}</label>
+        <input id="u-phone" className="inp" type="tel" value={form.phone} onChange={set('phone')} />
+      </div>
+
+      <button className="btn btn-go wide" disabled={busy} onClick={create}>
+        {busy ? t.saving : t.addUser}
+      </button>
+    </div>
+  )
+}
 
 export function Stations({ t, lang, stations, reload }) {
   const [form, setForm] = useState(BLANK_STATION)
