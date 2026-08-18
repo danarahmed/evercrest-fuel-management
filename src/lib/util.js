@@ -80,3 +80,15 @@ export function errText(error, fallback) {
 }
 
 export const OPEN_STATUSES = ['pending', 'approved', 'loaded']
+export const DONE_STATUSES = ['delivered', 'rejected', 'cancelled']
+
+/** Day bucket label for grouping a list by date. */
+export function dayLabel(value, t) {
+  const d = startOfDay(new Date(value))
+  const today = startOfDay(new Date())
+  const diff = Math.round((today - d) / 86400000)
+  if (diff === 0) return t.today
+  if (diff === 1) return t.yesterday
+  if (diff < 7) return d.toLocaleDateString('en-GB', { weekday: 'long' })
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}

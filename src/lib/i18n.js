@@ -139,7 +139,7 @@ export const DICT = {
     "tabReports": "Reports",
     "tabAccount": "Account",
     "search": "Search",
-    "searchPh": "Order number, truck, driver…",
+    "searchPh": "Search…",
     "fAll": "All",
     "fOpen": "Open",
     "fDone": "Finished",
@@ -188,6 +188,7 @@ export const DICT = {
     "summary": "Summary",
     "openDetails": "Open",
     "details": "Details",
+    "older": "Earlier",
     "actDeliver": "Received",
     "actLoad": "Load",
     "actApprove": "Approve"
@@ -331,7 +332,7 @@ export const DICT = {
     "tabReports": "ڕاپۆرتەکان",
     "tabAccount": "هەژمار",
     "search": "گەڕان",
-    "searchPh": "ژمارەی داواکاری، بارهەڵگر، شۆفێر…",
+    "searchPh": "گەڕان…",
     "fAll": "هەموو",
     "fOpen": "کراوە",
     "fDone": "تەواوبوو",
@@ -380,6 +381,7 @@ export const DICT = {
     "summary": "کورتە",
     "openDetails": "کردنەوە",
     "details": "وردەکاری",
+    "older": "پێشتر",
     "actDeliver": "وەرگیرا",
     "actLoad": "بارکردن",
     "actApprove": "پەسەند"

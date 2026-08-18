@@ -3,7 +3,7 @@ import { OrderRow } from './OrderRow'
 import { OrderDetail } from './OrderDetail'
 import { Empty, ErrorBox, Spinner } from './common'
 import { fetchOrders } from '../lib/api'
-import { num, OPEN_STATUSES } from '../lib/util'
+import { num, dayLabel, OPEN_STATUSES, DONE_STATUSES } from '../lib/util'
 import { translateError } from './ActionSheet'
 
 /**
@@ -32,7 +32,6 @@ export function OrdersList({
 }) {
   const [status, setStatus] = useState('')
   const [stationId, setStationId] = useState('')
-  const [productId, setProductId] = useState('')
   const [search, setSearch] = useState('')
   const [term, setTerm] = useState('')
 
@@ -51,10 +50,13 @@ export function OrdersList({
     return () => clearTimeout(id)
   }, [search])
 
+  // Three buckets is what people actually think in: everything, still moving,
+  // finished. The eight individual statuses are still visible on each row and
+  // in the detail sheet — they just are not eight filter buttons any more.
   const statuses = useMemo(() => {
     if (scope.statuses) return scope.statuses
     if (status === 'open') return OPEN_STATUSES
-    if (status) return [status]
+    if (status === 'done') return DONE_STATUSES
     return null
   }, [scope.statuses, status])
 
@@ -67,7 +69,6 @@ export function OrdersList({
         const { rows: got, count } = await fetchOrders({
           statuses,
           stationId: stationId || undefined,
-          productId: productId || undefined,
           actorId: scope.actorId,
           search: term,
           page: nextPage,
@@ -83,7 +84,7 @@ export function OrdersList({
         setState('error')
       }
     },
-    [statuses, stationId, productId, scope.actorId, term, t],
+    [statuses, stationId, scope.actorId, term, t],
   )
 
   useEffect(() => {
@@ -91,87 +92,65 @@ export function OrdersList({
   }, [load, refreshKey])
 
   const busy = state === 'loading'
-  const filtered = Boolean(status || stationId || productId || term)
+  const filtered = Boolean(status || stationId || term)
   const shown = rows.length
   const hasMore = shown < total
 
   const clear = () => {
     setStatus('')
     setStationId('')
-    setProductId('')
     setSearch('')
     setTerm('')
   }
 
-  const chips = scope.statuses
-    ? []
-    : ['open', 'pending', 'approved', 'loaded', 'delivered', 'rejected', 'cancelled']
+  // Rows arrive newest-first, so a simple run-length grouping keeps order.
+  const groups = useMemo(() => {
+    const out = []
+    for (const o of rows) {
+      const label = dayLabel(o.created_at, t)
+      if (out.length && out[out.length - 1][0] === label) out[out.length - 1][1].push(o)
+      else out.push([label, [o]])
+    }
+    return out
+  }, [rows, t])
 
   return (
     <>
       {showFilters && (
         <div className="toolbar">
-          <div className="search">
+          <div className="seg3">
+            {[['', t.fAll], ['open', t.fOpen], ['done', t.fDone]].map(([key, label]) => (
+              <button key={key} aria-pressed={status === key} onClick={() => setStatus(key)}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="tools2">
             <input
-              className="inp"
+              className="inp search"
               type="search"
               value={search}
               placeholder={t.searchPh}
               aria-label={t.search}
               onChange={(e) => setSearch(e.target.value)}
             />
+            {role !== 'station' && stations.length > 1 && (
+              <select
+                className="inp"
+                value={stationId}
+                aria-label={t.station}
+                onChange={(e) => setStationId(e.target.value)}
+              >
+                <option value="">{t.allStations}</option>
+                {stations.map((s2) => (
+                  <option key={s2.id} value={s2.id}>
+                    {lang === 'ku' ? s2.name_ku : s2.name_en}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
-
-          {(stations.length > 1 || products.length > 1) && (
-            <div className="fsel">
-              {role !== 'station' && stations.length > 1 && (
-                <select
-                  value={stationId}
-                  aria-label={t.station}
-                  onChange={(e) => setStationId(e.target.value)}
-                >
-                  <option value="">{t.allStations}</option>
-                  {stations.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {lang === 'ku' ? s.name_ku : s.name_en}
-                    </option>
-                  ))}
-                </select>
-              )}
-              {products.length > 1 && (
-                <select
-                  value={productId}
-                  aria-label={t.fuel}
-                  onChange={(e) => setProductId(e.target.value)}
-                >
-                  <option value="">{t.allFuels}</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {lang === 'ku' ? p.name_ku : p.name_en}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
-
-          {chips.length > 0 && (
-            <div className="pills">
-              <button className="pill" aria-pressed={status === ''} onClick={() => setStatus('')}>
-                {t.fAll}
-              </button>
-              {chips.map((s) => (
-                <button
-                  key={s}
-                  className="pill"
-                  aria-pressed={status === s}
-                  onClick={() => setStatus(status === s ? '' : s)}
-                >
-                  {s === 'open' ? t.fOpen : t['st_' + s]}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       )}
 
@@ -199,21 +178,24 @@ export function OrdersList({
         />
       )}
 
-      {rows.length > 0 && (
-        <div className="olist">
-          {rows.map((o) => (
-            <OrderRow
-              key={o.id}
-              order={o}
-              t={t}
-              lang={lang}
-              role={role}
-              onOpen={setDetail}
-              onAct={onAct}
-            />
-          ))}
+      {groups.map(([label, items]) => (
+        <div className="daygroup" key={label}>
+          <div className="dayhead">{label}</div>
+          <div className="olist">
+            {items.map((o) => (
+              <OrderRow
+                key={o.id}
+                order={o}
+                t={t}
+                lang={lang}
+                role={role}
+                onOpen={setDetail}
+                onAct={onAct}
+              />
+            ))}
+          </div>
         </div>
-      )}
+      ))}
 
       {hasMore && state !== 'error' && (
         <button

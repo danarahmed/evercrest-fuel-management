@@ -1,5 +1,4 @@
 import { num, orderNo, dueDate } from '../lib/util'
-import { StatusChip } from './common'
 
 /** Which buttons a role may see on an order in a given state. */
 export function allowedActions(role, status) {
@@ -30,10 +29,11 @@ const LABEL = { approve: 'actApprove', load: 'actLoad', deliver: 'actDeliver' }
 /**
  * One order, one line.
  *
- * The previous card was ~170 lines of markup tall — a progress rail, meta line,
- * notes and a row of buttons — so four orders filled a phone screen. Everything
- * except the headline facts and the one action you are likely to take now moved
- * into the detail sheet, which opens on tap.
+ * The quantity leads, because that is the fact anyone actually scans for — the
+ * station name led before and every row in a station's own list said the same
+ * thing. Order number, station and date drop to a quieter second line, and the
+ * status colour carries across the dot, the pill and the left edge so a list
+ * can be read by colour alone.
  */
 export function OrderRow({ order, t, lang, role, onOpen, onAct }) {
   const station = lang === 'ku' ? order.station_name_ku : order.station_name_en
@@ -41,19 +41,26 @@ export function OrderRow({ order, t, lang, role, onOpen, onAct }) {
   const action = primaryAction(role, order.status)
 
   return (
-    <div className={'orow s-' + order.status}>
-      <button className="orow-main" onClick={() => onOpen(order)} aria-label={`${t.details} #${orderNo(order.order_no)}`}>
-        <span className="orow-no">#{orderNo(order.order_no)}</span>
+    <div className={'orow s-' + order.status + (action ? ' needs-me' : '')}>
+      <button
+        className="orow-main"
+        onClick={() => onOpen(order)}
+        aria-label={`${t.details} #${orderNo(order.order_no)}`}
+      >
         <span className="orow-body">
           <span className="orow-top">
-            <span className="orow-station">{station}</span>
-            <StatusChip status={order.status} t={t} />
+            <span className="orow-qty">
+              <b>{num(order.quantity)}</b>
+              <i>{order.product_unit}</i>
+            </span>
+            <span className="orow-fuel">{fuel}</span>
+            <span className={'sdot d-' + order.status} aria-hidden="true" />
+            <span className="orow-status">{t['st_' + order.status]}</span>
           </span>
-          <span className="orow-facts">
-            <b>{num(order.quantity)}</b>
-            <span className="u">{order.product_unit}</span>
+          <span className="orow-sub">
+            <span className="orow-no">#{orderNo(order.order_no)}</span>
             <span className="dot-sep">·</span>
-            <span>{fuel}</span>
+            <span className="orow-station">{station}</span>
             <span className="dot-sep">·</span>
             <span>{dueDate(order.needed_date, t)}</span>
           </span>
@@ -61,10 +68,7 @@ export function OrderRow({ order, t, lang, role, onOpen, onAct }) {
       </button>
 
       {action && (
-        <button
-          className={'orow-act a-' + action.tone}
-          onClick={() => onAct(action.key, order)}
-        >
+        <button className={'orow-act a-' + action.tone} onClick={() => onAct(action.key, order)}>
           {t[LABEL[action.key]]}
         </button>
       )}
