@@ -6,7 +6,7 @@ import { SignIn, Inactive } from './components/Auth'
 import { OrdersList } from './components/OrdersList'
 import { NewOrder } from './components/NewOrder'
 import { Reports } from './components/Reports'
-import { Setup } from './components/Admin'
+import { Users, Stations, Fuels } from './components/Admin'
 import { Account } from './components/Account'
 import { ActionSheet } from './components/ActionSheet'
 import { Empty, Spinner } from './components/common'
@@ -24,7 +24,7 @@ const NAV = {
   station: ['new', 'mine', 'reports'],
   manager: ['queue', 'board', 'reports'],
   storage: ['toload', 'transit', 'board', 'reports'],
-  admin: ['board', 'new', 'reports', 'setup'],
+  admin: ['board', 'new', 'reports', 'users', 'stations', 'fuels'],
 }
 
 const TAB_LABEL = {
@@ -35,7 +35,9 @@ const TAB_LABEL = {
   transit: 'tabTransit',
   board: 'tabAll',
   reports: 'tabReports',
-  setup: 'tabStations',
+  users: 'tabUsers',
+  stations: 'tabStations',
+  fuels: 'tabFuels',
 }
 
 const QUEUE_STATUS = { queue: ['pending'], toload: ['approved'], transit: ['loaded'] }
@@ -210,7 +212,7 @@ export function App() {
               aria-selected={current === key}
               onClick={() => setTab(key)}
             >
-              {key === 'setup' ? t.tabUsers : t[TAB_LABEL[key]]}
+              {t[TAB_LABEL[key]]}
               {badges[key] ? <span className="cnt">{badges[key]}</span> : null}
             </button>
           ))}
@@ -224,11 +226,14 @@ export function App() {
             profile={profile} onDone={refresh}
           />
         )}
-        {current === 'setup' && (
-          <Setup
-            t={t} lang={lang} stations={stations} products={products}
-            reload={loadReference} meId={profile.id}
-          />
+        {current === 'users' && (
+          <Users t={t} lang={lang} stations={stations} reload={loadReference} meId={profile.id} />
+        )}
+        {current === 'stations' && (
+          <Stations t={t} lang={lang} stations={stations} reload={loadReference} />
+        )}
+        {current === 'fuels' && (
+          <Fuels t={t} lang={lang} products={products} reload={loadReference} />
         )}
         {current === 'reports' && (
           <Reports

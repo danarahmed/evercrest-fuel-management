@@ -535,5 +535,6 @@ html[dir="rtl"] .rtable td.d{font-family:var(--sans)}
   background:var(--brand-ink);border-color:var(--brand-ink);color:#fff;font-weight:600;
 }
 .rolebar button[aria-pressed="true"] b{color:#fff}
-.panel > .search{margin-bottom:10px;background:var(--line2);border-color:transparent}
-.panel > .search:focus{background:#fff}
+.toolbar > .search{background:var(--line2);border-color:transparent}
+.toolbar > .search:focus{background:#fff}
+.toolbar > .rolebar{margin-bottom:9px}

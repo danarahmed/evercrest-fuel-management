@@ -4,30 +4,12 @@ import { ErrorBox, Ok, Sheet, Empty, PasswordInput, Spinner } from './common'
 import { rpc, write } from '../lib/api'
 import { translateError } from './ActionSheet'
 
-const SETUP_TABS = ['users', 'stations', 'fuels']
+// Filter order is by privilege; the create form below keeps its own order.
 const ROLES = ['admin', 'manager', 'storage', 'station']
-
-export function Setup({ t, lang, stations, products, reload, meId }) {
-  const [tab, setTab] = useState('users')
-  return (
-    <>
-      <div className="subtabs">
-        {SETUP_TABS.map((key) => (
-          <button key={key} aria-pressed={tab === key} onClick={() => setTab(key)}>
-            {t['tab' + key[0].toUpperCase() + key.slice(1)]}
-          </button>
-        ))}
-      </div>
-      {tab === 'users' && <Users t={t} lang={lang} stations={stations} reload={reload} meId={meId} />}
-      {tab === 'stations' && <Stations t={t} lang={lang} stations={stations} reload={reload} />}
-      {tab === 'fuels' && <Fuels t={t} lang={lang} products={products} reload={reload} />}
-    </>
-  )
-}
 
 const BLANK_USER = { username: '', password: '', full_name: '', role: 'station', station_id: '', phone: '' }
 
-function Users({ t, lang, stations, reload, meId }) {
+export function Users({ t, lang, stations, reload, meId }) {
   const [users, setUsers] = useState([])
   const [roleFilter, setRoleFilter] = useState('')
   const [userSearch, setUserSearch] = useState('')
@@ -143,9 +125,7 @@ function Users({ t, lang, stations, reload, meId }) {
 
   return (
     <>
-      <div className="panel">
-        <h2>{t.tabUsers}</h2>
-
+      <div className="toolbar">
         <div className="rolebar">
           <button aria-pressed={roleFilter === ''} onClick={() => setRoleFilter('')}>
             {t.fAll} <b>{users.length}</b>
@@ -165,7 +145,9 @@ function Users({ t, lang, stations, reload, meId }) {
           aria-label={t.search}
           onChange={(e) => setUserSearch(e.target.value)}
         />
+      </div>
 
+      <div className="panel">
         {state === 'loading' && <Spinner label={t.loadingData} />}
         {state !== 'loading' && shown.length === 0 && (
           <Empty title={t.noResults} msg={t.noResultsP} />
@@ -300,7 +282,7 @@ function Users({ t, lang, stations, reload, meId }) {
 
 const BLANK_STATION = { code: '', name_en: '', name_ku: '', location: '', phone: '' }
 
-function Stations({ t, lang, stations, reload }) {
+export function Stations({ t, lang, stations, reload }) {
   const [form, setForm] = useState(BLANK_STATION)
   const [problem, setProblem] = useState('')
   const [busy, setBusy] = useState(false)
@@ -399,7 +381,7 @@ function Stations({ t, lang, stations, reload }) {
   )
 }
 
-function Fuels({ t, lang, products, reload }) {
+export function Fuels({ t, lang, products, reload }) {
   const [form, setForm] = useState({ name_en: '', name_ku: '', unit: 'L' })
   const [problem, setProblem] = useState('')
   const [busy, setBusy] = useState(false)
