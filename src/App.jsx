@@ -6,7 +6,7 @@ import { SignIn, Inactive } from './components/Auth'
 import { OrdersList } from './components/OrdersList'
 import { NewOrder } from './components/NewOrder'
 import { Reports } from './components/Reports'
-import { Users, NewUser, Stations, Fuels } from './components/Admin'
+import { Users, NewUser, StationList, Fuels } from './components/Admin'
 import { Account } from './components/Account'
 import { ActionSheet } from './components/ActionSheet'
 import { Empty, Spinner } from './components/common'
@@ -232,7 +232,7 @@ export function App() {
         {current === 'newuser' && (
           <>
             <NewUser t={t} lang={lang} stations={stations} reload={loadReference} />
-            <Stations t={t} lang={lang} stations={stations} reload={loadReference} />
+            <StationList t={t} lang={lang} stations={stations} reload={loadReference} />
           </>
         )}
         {current === 'fuels' && (

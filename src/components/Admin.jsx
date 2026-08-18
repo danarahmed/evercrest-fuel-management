@@ -7,6 +7,8 @@ import { translateError } from './ActionSheet'
 // Filter order is by privilege; the create form below keeps its own order.
 const ROLES = ['admin', 'manager', 'storage', 'station']
 
+const BLANK_STATION = { code: '', name_en: '', name_ku: '', location: '' }
+
 const BLANK_USER = { username: '', password: '', full_name: '', role: 'station', station_id: '', phone: '' }
 
 /**
@@ -286,14 +288,25 @@ export function Users({ t, lang, stations, reload, meId }) {
   )
 }
 
-/** Creating an account: who they are, and what they may do. */
+/**
+ * Creating an account.
+ *
+ * A station account needs a station, so that choice lives here rather than on
+ * a second form: pick one that exists, or fill in a new one inline and it is
+ * created and linked in the same step. Nothing about stations is shown for
+ * the other three roles, which do not have one.
+ */
 export function NewUser({ t, lang, stations, reload }) {
   const [form, setForm] = useState(BLANK_USER)
+  const [station, setStation] = useState(BLANK_STATION)
   const [problem, setProblem] = useState('')
   const [done, setDone] = useState('')
   const [busy, setBusy] = useState(false)
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
+  const setSt = (key) => (e) => setStation((s2) => ({ ...s2, [key]: e.target.value }))
+
+  const makingStation = form.station_id === 'new'
 
   const create = async () => {
     if (busy) return
@@ -301,19 +314,48 @@ export function NewUser({ t, lang, stations, reload }) {
     setDone('')
     if (!form.username.trim()) return setProblem(t.username)
     if (form.password.length < 6) return setProblem(t.pwShort)
-    if (form.role === 'station' && !form.station_id) return setProblem(t.pickStation)
+
+    let stationId = null
+    if (form.role === 'station') {
+      if (!form.station_id) return setProblem(t.pickStation)
+      if (makingStation) {
+        if (!station.code.trim() || !station.name_en.trim()) {
+          return setProblem(t.code + ' + ' + t.nameEn)
+        }
+        if (!station.location.trim()) return setProblem(t.locationReq)
+      }
+    }
+
     setBusy(true)
     try {
+      if (makingStation) {
+        const rows = await write(
+          supabase
+            .from('stations')
+            .insert({
+              code: station.code.trim().toUpperCase(),
+              name_en: station.name_en.trim(),
+              name_ku: station.name_ku.trim() || station.name_en.trim(),
+              location: station.location.trim(),
+            })
+            .select('id'),
+        )
+        stationId = rows?.[0]?.id
+      } else if (form.role === 'station') {
+        stationId = form.station_id
+      }
+
       await rpc('admin_create_user', {
         p_username: form.username,
         p_password: form.password,
         p_full_name: form.full_name || form.username,
         p_role: form.role,
-        p_station: form.role === 'station' ? form.station_id : null,
+        p_station: stationId,
         p_phone: form.phone || null,
       })
       setDone(t.userCreated)
       setForm(BLANK_USER)
+      setStation(BLANK_STATION)
       reload()
     } catch (e) {
       setProblem(translateError(e, t))
@@ -358,7 +400,7 @@ export function NewUser({ t, lang, stations, reload }) {
           {['station', 'manager', 'storage', 'admin'].map((r) => (
             <button
               key={r} type="button" aria-pressed={form.role === r}
-              onClick={() => setForm((f) => ({ ...f, role: r }))}
+              onClick={() => setForm((f) => ({ ...f, role: r, station_id: '' }))}
             >
               {t['r_' + r]}
             </button>
@@ -367,19 +409,43 @@ export function NewUser({ t, lang, stations, reload }) {
       </div>
 
       {form.role === 'station' && (
-        <div className="field">
-          <label htmlFor="u-station">{t.station}</label>
-          {stations.length ? (
+        <>
+          <div className="field">
+            <label htmlFor="u-station">{t.station}</label>
             <select id="u-station" className="inp" value={form.station_id} onChange={set('station_id')}>
               <option value="">—</option>
-              {stations.map((s) => (
-                <option key={s.id} value={s.id}>{lang === 'ku' ? s.name_ku : s.name_en}</option>
+              {stations.map((s2) => (
+                <option key={s2.id} value={s2.id}>{lang === 'ku' ? s2.name_ku : s2.name_en}</option>
               ))}
+              <option value="new">{t.newStationOpt}</option>
             </select>
-          ) : (
-            <div className="err">{t.noStationFirst}</div>
+          </div>
+
+          {makingStation && (
+            <div className="subform">
+              <div className="row">
+                <div className="field">
+                  <label htmlFor="s-code">{t.code}</label>
+                  <input id="s-code" className="inp" value={station.code} placeholder="ST-01" onChange={setSt('code')} />
+                </div>
+                <div className="field">
+                  <label htmlFor="s-loc">{t.location}</label>
+                  <input id="s-loc" className="inp" value={station.location} onChange={setSt('location')} />
+                </div>
+              </div>
+              <div className="row">
+                <div className="field">
+                  <label htmlFor="s-en">{t.nameEn}</label>
+                  <input id="s-en" className="inp" value={station.name_en} onChange={setSt('name_en')} />
+                </div>
+                <div className="field">
+                  <label htmlFor="s-ku">{t.nameKu}</label>
+                  <input id="s-ku" className="inp" value={station.name_ku} onChange={setSt('name_ku')} />
+                </div>
+              </div>
+            </div>
           )}
-        </div>
+        </>
       )}
 
       <div className="field">
@@ -394,38 +460,9 @@ export function NewUser({ t, lang, stations, reload }) {
   )
 }
 
-const BLANK_STATION = { code: '', name_en: '', name_ku: '', location: '', phone: '' }
-
-export function Stations({ t, lang, stations, reload }) {
-  const [form, setForm] = useState(BLANK_STATION)
+/** The stations that exist, and whether they are in service. */
+export function StationList({ t, lang, stations, reload }) {
   const [problem, setProblem] = useState('')
-  const [busy, setBusy] = useState(false)
-  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
-
-  const add = async () => {
-    if (busy) return
-    setProblem('')
-    if (!form.code.trim() || !form.name_en.trim()) return setProblem(t.code + ' + ' + t.nameEn)
-    if (!form.location.trim()) return setProblem(t.locationReq)
-    setBusy(true)
-    try {
-      await write(
-        supabase.from('stations').insert({
-          code: form.code.trim().toUpperCase(),
-          name_en: form.name_en.trim(),
-          name_ku: form.name_ku.trim() || form.name_en.trim(),
-          location: form.location.trim(),
-          phone: form.phone.trim() || null,
-        }),
-      )
-      setForm(BLANK_STATION)
-      reload()
-    } catch (e) {
-      setProblem(translateError(e, t))
-    } finally {
-      setBusy(false)
-    }
-  }
 
   const toggle = async (s) => {
     setProblem('')
@@ -438,60 +475,25 @@ export function Stations({ t, lang, stations, reload }) {
   }
 
   return (
-    <>
-      <div className="panel">
-        <h2>{t.addStation}</h2>
-        <ErrorBox>{problem}</ErrorBox>
-        <div className="row">
-          <div className="field">
-            <label htmlFor="s-code">{t.code}</label>
-            <input id="s-code" className="inp" value={form.code} placeholder="ST-01" onChange={set('code')} />
+    <div className="panel">
+      <h2>{t.tabStations}</h2>
+      <ErrorBox>{problem}</ErrorBox>
+      {!stations.length && <Empty title={t.emptyStations} msg={t.emptyStationsP} />}
+      {stations.map((s) => (
+        <div className="lrow" key={s.id}>
+          <div className="grow">
+            <b>{lang === 'ku' ? s.name_ku : s.name_en}</b>
+            <small>{s.code} · {s.location}</small>
           </div>
-          <div className="field">
-            <label htmlFor="s-phone">{t.phone}</label>
-            <input id="s-phone" className="inp" type="tel" value={form.phone} onChange={set('phone')} />
-          </div>
+          <span className={'tag ' + (s.is_active ? 'on' : 'off')}>
+            {s.is_active ? t.active : t.off}
+          </span>
+          <button className="btn btn-ghost btn-sm" onClick={() => toggle(s)}>
+            {s.is_active ? t.turnOff : t.turnOn}
+          </button>
         </div>
-        <div className="field">
-          <label htmlFor="s-en">{t.nameEn}</label>
-          <input id="s-en" className="inp" value={form.name_en} onChange={set('name_en')} />
-        </div>
-        <div className="field">
-          <label htmlFor="s-ku">{t.nameKu}</label>
-          <input id="s-ku" className="inp" value={form.name_ku} onChange={set('name_ku')} />
-        </div>
-        <div className="field">
-          <label htmlFor="s-loc">{t.location}</label>
-          <input id="s-loc" className="inp" value={form.location} onChange={set('location')} />
-        </div>
-        <button className="btn btn-go wide" disabled={busy} onClick={add}>
-          {busy ? t.saving : t.addStation}
-        </button>
-      </div>
-
-      <div className="panel">
-        <h2>{t.tabStations}</h2>
-        {!stations.length && <Empty title={t.emptyStations} msg={t.emptyStationsP} />}
-        {stations.map((s) => (
-          <div className="lrow" key={s.id}>
-            <div className="grow">
-              <b>{lang === 'ku' ? s.name_ku : s.name_en}</b>
-              <small>
-                {s.code}
-                {s.location ? ' · ' + s.location : ''}
-                {s.phone ? ' · ' + s.phone : ''}
-              </small>
-            </div>
-            <span className={'tag ' + (s.is_active ? 'on' : 'off')}>
-              {s.is_active ? t.active : t.off}
-            </span>
-            <button className="btn btn-ghost btn-sm" onClick={() => toggle(s)}>
-              {s.is_active ? t.turnOff : t.turnOn}
-            </button>
-          </div>
-        ))}
-      </div>
-    </>
+      ))}
+    </div>
   )
 }
 
