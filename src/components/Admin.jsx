@@ -5,6 +5,7 @@ import { rpc, write } from '../lib/api'
 import { translateError } from './ActionSheet'
 
 const SETUP_TABS = ['users', 'stations', 'fuels']
+const ROLES = ['admin', 'manager', 'storage', 'station']
 
 export function Setup({ t, lang, stations, products, reload, meId }) {
   const [tab, setTab] = useState('users')
@@ -28,6 +29,8 @@ const BLANK_USER = { username: '', password: '', full_name: '', role: 'station',
 
 function Users({ t, lang, stations, reload, meId }) {
   const [users, setUsers] = useState([])
+  const [roleFilter, setRoleFilter] = useState('')
+  const [userSearch, setUserSearch] = useState('')
   const [state, setState] = useState('loading')
   const [form, setForm] = useState(BLANK_USER)
   const [problem, setProblem] = useState('')
@@ -117,6 +120,22 @@ function Users({ t, lang, stations, reload, meId }) {
     }
   }
 
+  // Counts come from the whole list, not the filtered one, so the tabs keep
+  // showing how many of each role exist while you are looking at one of them.
+  const roleCounts = ROLES.reduce(
+    (acc, r) => ({ ...acc, [r]: users.filter((u) => u.role === r).length }),
+    {},
+  )
+
+  const term = userSearch.trim().toLowerCase()
+  const shown = users.filter(
+    (u) =>
+      (!roleFilter || u.role === roleFilter) &&
+      (!term ||
+        (u.full_name || '').toLowerCase().includes(term) ||
+        (u.username || '').toLowerCase().includes(term)),
+  )
+
   const stationName = (id) => {
     const s = stations.find((x) => x.id === id)
     return s ? (lang === 'ku' ? s.name_ku : s.name_en) : ''
@@ -124,6 +143,64 @@ function Users({ t, lang, stations, reload, meId }) {
 
   return (
     <>
+      <div className="panel">
+        <h2>{t.tabUsers}</h2>
+
+        <div className="rolebar">
+          <button aria-pressed={roleFilter === ''} onClick={() => setRoleFilter('')}>
+            {t.fAll} <b>{users.length}</b>
+          </button>
+          {ROLES.map((r) => (
+            <button key={r} aria-pressed={roleFilter === r} onClick={() => setRoleFilter(r)}>
+              {t['r_' + r]} <b>{roleCounts[r]}</b>
+            </button>
+          ))}
+        </div>
+
+        <input
+          className="inp search"
+          type="search"
+          value={userSearch}
+          placeholder={t.searchPh}
+          aria-label={t.search}
+          onChange={(e) => setUserSearch(e.target.value)}
+        />
+
+        {state === 'loading' && <Spinner label={t.loadingData} />}
+        {state !== 'loading' && shown.length === 0 && (
+          <Empty title={t.noResults} msg={t.noResultsP} />
+        )}
+        {shown.map((u) => (
+          <div className="lrow" key={u.id}>
+            <div className="grow">
+              <b>{u.full_name}</b>
+              <small>
+                {u.username} · {t['r_' + u.role]}
+                {u.station_id ? ' · ' + stationName(u.station_id) : ''}
+              </small>
+            </div>
+            <span className={'tag ' + (u.is_active ? 'on' : 'off')}>
+              {u.is_active ? t.active : t.off}
+            </span>
+            {u.id === meId ? (
+              <span className="tag on">{t.you}</span>
+            ) : (
+              <>
+                <button className="btn btn-ghost btn-sm" onClick={() => toggle(u)}>
+                  {u.is_active ? t.turnOff : t.turnOn}
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setResetting(u)}>
+                  {t.resetPw}
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setConfirming(u)}>
+                  {t.delete}
+                </button>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+
       <div className="panel">
         <h2>{t.addUser}</h2>
         <ErrorBox>{problem}</ErrorBox>
@@ -191,40 +268,6 @@ function Users({ t, lang, stations, reload, meId }) {
         <button className="btn btn-go wide" disabled={busy} onClick={create}>
           {busy ? t.saving : t.addUser}
         </button>
-      </div>
-
-      <div className="panel">
-        <h2>{t.tabUsers}</h2>
-        {state === 'loading' && <Spinner label={t.loadingData} />}
-        {users.map((u) => (
-          <div className="lrow" key={u.id}>
-            <div className="grow">
-              <b>{u.full_name}</b>
-              <small>
-                {u.username} · {t['r_' + u.role]}
-                {u.station_id ? ' · ' + stationName(u.station_id) : ''}
-              </small>
-            </div>
-            <span className={'tag ' + (u.is_active ? 'on' : 'off')}>
-              {u.is_active ? t.active : t.off}
-            </span>
-            {u.id === meId ? (
-              <span className="tag on">{t.you}</span>
-            ) : (
-              <>
-                <button className="btn btn-ghost btn-sm" onClick={() => toggle(u)}>
-                  {u.is_active ? t.turnOff : t.turnOn}
-                </button>
-                <button className="btn btn-ghost btn-sm" onClick={() => setResetting(u)}>
-                  {t.resetPw}
-                </button>
-                <button className="btn btn-ghost btn-sm" onClick={() => setConfirming(u)}>
-                  {t.delete}
-                </button>
-              </>
-            )}
-          </div>
-        ))}
       </div>
 
       {resetting && (
