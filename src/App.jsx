@@ -6,7 +6,7 @@ import { SignIn, Inactive } from './components/Auth'
 import { OrdersList } from './components/OrdersList'
 import { NewOrder } from './components/NewOrder'
 import { Reports } from './components/Reports'
-import { Users, NewUser, Fuels } from './components/Admin'
+import { Users, NewUser, StationList, Fuels } from './components/Admin'
 import { Account } from './components/Account'
 import { ActionSheet } from './components/ActionSheet'
 import { Empty, Spinner } from './components/common'
@@ -37,7 +37,7 @@ const TAB_LABEL = {
   reports: 'tabReports',
   users: 'tabUsers',
   newuser: 'tabAddNew',
-  fuels: 'tabFuels',
+  fuels: 'tabSetup',
 }
 
 const QUEUE_STATUS = { queue: ['pending'], toload: ['approved'], transit: ['loaded'] }
@@ -233,7 +233,10 @@ export function App() {
           <NewUser t={t} lang={lang} stations={stations} reload={loadReference} />
         )}
         {current === 'fuels' && (
-          <Fuels t={t} lang={lang} products={products} reload={loadReference} />
+          <>
+            <StationList t={t} lang={lang} stations={stations} reload={loadReference} />
+            <Fuels t={t} lang={lang} products={products} reload={loadReference} />
+          </>
         )}
         {current === 'reports' && (
           <Reports
