@@ -158,7 +158,16 @@ export function App() {
   const onAct = (a, order) => setAction({ a, order })
 
   const listFor = (key) => {
-    const scope = key === 'mine' ? { actorId: profile.id } : QUEUE_STATUS[key] ? { statuses: QUEUE_STATUS[key] } : {}
+    // "My orders" for a station means every order for that station — including
+    // one an admin placed on their behalf — not only the ones this account
+    // personally touched. RLS already limits a station to its own station, so
+    // scoping by station_id is both correct and safe. Other roles that ever get
+    // a "mine" tab fall back to orders they acted on.
+    const mineScope =
+      role === 'station' && profile.station_id
+        ? { stationId: profile.station_id }
+        : { actorId: profile.id }
+    const scope = key === 'mine' ? mineScope : QUEUE_STATUS[key] ? { statuses: QUEUE_STATUS[key] } : {}
     const empties = {
       mine: { title: t.emptyMine, msg: t.emptyMineP },
       queue: { title: t.emptyQueue, msg: t.emptyQueueP },

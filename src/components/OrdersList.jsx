@@ -10,7 +10,8 @@ import { translateError } from './ActionSheet'
  * The one list every screen is built from.
  *
  * `scope` decides what the list is about:
- *   { actorId }            → my orders, every role
+ *   { actorId }            → orders this account personally acted on
+ *   { stationId }          → every order for one station (a station's own list)
  *   { statuses: [...] }    → a work queue
  *   {}                     → the whole board
  *
@@ -69,7 +70,7 @@ export function OrdersList({
       try {
         const { rows: got, count } = await fetchOrders({
           statuses,
-          stationId: stationId || undefined,
+          stationId: stationId || scope.stationId || undefined,
           location: location || undefined,
           actorId: scope.actorId,
           search: term,
@@ -86,7 +87,7 @@ export function OrdersList({
         setState('error')
       }
     },
-    [statuses, stationId, location, scope.actorId, term, t],
+    [statuses, stationId, location, scope.actorId, scope.stationId, term, t],
   )
 
   useEffect(() => {
