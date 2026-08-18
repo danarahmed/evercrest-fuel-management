@@ -226,7 +226,11 @@ export const DICT = {
     "older": "Earlier",
     "actDeliver": "Received",
     "actLoad": "Load",
-    "actApprove": "Approve"
+    "actApprove": "Approve",
+    "tabOverview": "Overview",
+    "ovSnapshot": "Across every station in the network.",
+    "ovStatusTitle": "Orders by status",
+    "ovVolumeTitle": "Litres by stage"
   },
   "ku": {
     "dir": "rtl",
@@ -454,7 +458,11 @@ export const DICT = {
     "older": "پێشتر",
     "actDeliver": "وەرگیرا",
     "actLoad": "بارکردن",
-    "actApprove": "پەسەند"
+    "actApprove": "پەسەند",
+    "tabOverview": "تێڕوانین",
+    "ovSnapshot": "لە هەموو بنکەکانی تۆڕەکەدا.",
+    "ovStatusTitle": "داواکاری بەپێی دۆخ",
+    "ovVolumeTitle": "لیتر بەپێی قۆناغ"
   }
 }
 

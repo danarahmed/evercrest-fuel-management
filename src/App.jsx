@@ -6,6 +6,7 @@ import { SignIn, Inactive } from './components/Auth'
 import { OrdersList } from './components/OrdersList'
 import { NewOrder } from './components/NewOrder'
 import { Reports } from './components/Reports'
+import { Overview } from './components/Overview'
 import { Users, NewUser, StationList, Fuels } from './components/Admin'
 import { Account } from './components/Account'
 import { ActionSheet } from './components/ActionSheet'
@@ -24,10 +25,11 @@ const NAV = {
   station: ['new', 'mine', 'reports'],
   manager: ['queue', 'board', 'reports'],
   storage: ['toload', 'transit', 'board', 'reports'],
-  admin: ['new', 'reports', 'users', 'newuser', 'fuels'],
+  admin: ['overview', 'board', 'new', 'reports', 'users', 'newuser', 'fuels'],
 }
 
 const TAB_LABEL = {
+  overview: 'tabOverview',
   mine: 'myActivity',
   new: 'tabNew',
   queue: 'tabQueue',
@@ -254,6 +256,9 @@ export function App() {
             <StationList t={t} reload={loadReference} />
             <Fuels t={t} lang={lang} products={products} reload={loadReference} />
           </>
+        )}
+        {current === 'overview' && (
+          <Overview t={t} lang={lang} stations={activeStations} refreshKey={refreshKey} />
         )}
         {current === 'reports' && (
           <Reports

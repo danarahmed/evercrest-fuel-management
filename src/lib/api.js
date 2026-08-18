@@ -129,6 +129,21 @@ export async function reportSummary({ fromDate, toDate, stationId, status } = {}
   return data || []
 }
 
+/**
+ * One-row snapshot for the admin overview: status counts and liter totals over
+ * a date range. Computed in the database (dashboard_metrics) so it is exact and
+ * cheap — no rows are shipped to the client.
+ */
+export async function dashboardMetrics({ fromDate, toDate } = {}) {
+  const { data, error } = await supabase.rpc('dashboard_metrics', {
+    p_from: fromDate ? fromDate.toISOString() : null,
+    p_to: toDate ? toDate.toISOString() : null,
+  })
+  if (error) throw new Error(errText(error, 'load-failed'))
+  // The function returns a single row (or none if the range is empty).
+  return (Array.isArray(data) ? data[0] : data) || {}
+}
+
 export async function fetchEvents(orderId) {
   const { data, error } = await supabase
     .from('order_events')
