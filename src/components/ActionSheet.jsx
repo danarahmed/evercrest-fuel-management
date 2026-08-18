@@ -62,6 +62,7 @@ export function ActionSheet({ act, order, t, onClose, onDone }) {
     if (qtyBad) return setProblem(t.qtyPositive)
     if (qtyHuge) return setProblem(t.qtyTooBig)
     if (act === 'deliver' && !file) return setProblem(t.manifestNeeded)
+    if (act === 'load' && !file) return setProblem(t.loadManifestNeeded)
 
     setBusy(true)
     try {
@@ -105,7 +106,11 @@ export function ActionSheet({ act, order, t, onClose, onDone }) {
 
   const lede = `#${orderNo(order.order_no)} · ${num(order.quantity)} ${order.product_unit}`
   const blocked =
-    busy || (act === 'reject' && !form.note.trim()) || (act === 'deliver' && !file) || qtyBad
+    busy ||
+    (act === 'reject' && !form.note.trim()) ||
+    (act === 'deliver' && !file) ||
+    (act === 'load' && !file) ||
+    qtyBad
 
   return (
     <Sheet title={titles[act]} lede={lede} onClose={onClose}>
@@ -132,7 +137,6 @@ export function ActionSheet({ act, order, t, onClose, onDone }) {
           <div className="field">
             <label htmlFor="act-file">
               {act === 'load' ? t.attachLoadManifest : t.attachManifest}
-              {act === 'load' && <span className="hint"> · {t.optional}</span>}
             </label>
             <input
               id="act-file"
