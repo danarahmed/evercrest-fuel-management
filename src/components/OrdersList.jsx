@@ -3,7 +3,7 @@ import { OrderRow } from './OrderRow'
 import { OrderDetail } from './OrderDetail'
 import { Empty, ErrorBox, Spinner } from './common'
 import { fetchOrders } from '../lib/api'
-import { num, dayLabel, OPEN_STATUSES, DONE_STATUSES } from '../lib/util'
+import { num, dayLabel, locationsOf, OPEN_STATUSES, DONE_STATUSES } from '../lib/util'
 import { translateError } from './ActionSheet'
 
 /**
@@ -32,6 +32,7 @@ export function OrdersList({
 }) {
   const [status, setStatus] = useState('')
   const [stationId, setStationId] = useState('')
+  const [location, setLocation] = useState('')
   const [search, setSearch] = useState('')
   const [term, setTerm] = useState('')
 
@@ -69,6 +70,7 @@ export function OrdersList({
         const { rows: got, count } = await fetchOrders({
           statuses,
           stationId: stationId || undefined,
+          location: location || undefined,
           actorId: scope.actorId,
           search: term,
           page: nextPage,
@@ -84,7 +86,7 @@ export function OrdersList({
         setState('error')
       }
     },
-    [statuses, stationId, scope.actorId, term, t],
+    [statuses, stationId, location, scope.actorId, term, t],
   )
 
   useEffect(() => {
@@ -92,16 +94,24 @@ export function OrdersList({
   }, [load, refreshKey])
 
   const busy = state === 'loading'
-  const filtered = Boolean(status || stationId || term)
+  const filtered = Boolean(status || stationId || location || term)
   const shown = rows.length
   const hasMore = shown < total
 
   const clear = () => {
     setStatus('')
     setStationId('')
+    setLocation('')
     setSearch('')
     setTerm('')
   }
+
+  // Picking a location narrows the station list to that location, so the two
+  // dropdowns cannot be set to a combination that returns nothing.
+  const locations = locationsOf(stations)
+  const stationChoices = location
+    ? stations.filter((s2) => (s2.location || '').trim() === location)
+    : stations
 
   // Rows arrive newest-first, so a simple run-length grouping keeps order.
   const groups = useMemo(() => {
@@ -135,7 +145,23 @@ export function OrdersList({
               aria-label={t.search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            {role !== 'station' && stations.length > 1 && (
+            {role !== 'station' && locations.length > 1 && (
+              <select
+                className="inp"
+                value={location}
+                aria-label={t.location}
+                onChange={(e) => {
+                  setLocation(e.target.value)
+                  setStationId('')
+                }}
+              >
+                <option value="">{t.allLocations}</option>
+                {locations.map((loc) => (
+                  <option key={loc} value={loc}>{loc}</option>
+                ))}
+              </select>
+            )}
+            {role !== 'station' && stationChoices.length > 1 && (
               <select
                 className="inp"
                 value={stationId}
@@ -143,7 +169,7 @@ export function OrdersList({
                 onChange={(e) => setStationId(e.target.value)}
               >
                 <option value="">{t.allStations}</option>
-                {stations.map((s2) => (
+                {stationChoices.map((s2) => (
                   <option key={s2.id} value={s2.id}>
                     {lang === 'ku' ? s2.name_ku : s2.name_en}
                   </option>

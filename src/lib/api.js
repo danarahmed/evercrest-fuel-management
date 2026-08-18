@@ -15,6 +15,7 @@ export async function fetchOrders({
   statuses,
   stationId,
   productId,
+  location,
   actorId,
   search,
   fromDate,
@@ -31,6 +32,7 @@ export async function fetchOrders({
   if (statuses?.length) q = q.in('status', statuses)
   if (stationId) q = q.eq('station_id', stationId)
   if (productId) q = q.eq('product_id', productId)
+  if (location) q = q.eq('station_location', location)
   if (fromDate) q = q.gte('created_at', fromDate.toISOString())
   if (toDate) q = q.lt('created_at', toDate.toISOString())
 
@@ -43,7 +45,14 @@ export async function fetchOrders({
   if (term) {
     const digits = term.replace(/^#/, '')
     const like = `%${escapeLike(term)}%`
-    const parts = [`truck_no.ilike.${like}`, `driver_name.ilike.${like}`, `manifest_no.ilike.${like}`]
+    const parts = [
+      `truck_no.ilike.${like}`,
+      `driver_name.ilike.${like}`,
+      `manifest_no.ilike.${like}`,
+      `station_location.ilike.${like}`,
+      `station_name_en.ilike.${like}`,
+      `station_name_ku.ilike.${like}`,
+    ]
     if (/^\d+$/.test(digits)) parts.push(`order_no.eq.${digits}`)
     q = q.or(parts.join(','))
   }

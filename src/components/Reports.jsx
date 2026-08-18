@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Empty, ErrorBox, Spinner } from './common'
 import { fetchOrders } from '../lib/api'
-import { daysAgo, downloadCsv, isoDate, num, startOfDay } from '../lib/util'
+import { daysAgo, downloadCsv, isoDate, locationsOf, num, startOfDay } from '../lib/util'
 import { translateError } from './ActionSheet'
 
 const REPORT_CAP = 2000
@@ -27,6 +27,7 @@ const PERIODS = ['pToday', 'p7', 'p30', 'p90', 'allTime']
 export function Reports({ t, lang, role, profile, stations, refreshKey }) {
   const [period, setPeriod] = useState('p30')
   const [stationId, setStationId] = useState('')
+  const [location, setLocation] = useState('')
   const [rows, setRows] = useState([])
   const [total, setTotal] = useState(0)
   const [state, setState] = useState('loading')
@@ -53,6 +54,7 @@ export function Reports({ t, lang, role, profile, stations, refreshKey }) {
         fromDate,
         toDate,
         stationId: stationId || undefined,
+        location: location || undefined,
         page: 0,
         pageSize: REPORT_CAP,
       })
@@ -63,7 +65,7 @@ export function Reports({ t, lang, role, profile, stations, refreshKey }) {
       setProblem(translateError(e, t))
       setState('error')
     }
-  }, [range, stationId, t])
+  }, [range, stationId, location, t])
 
   useEffect(() => {
     load()
@@ -127,6 +129,13 @@ export function Reports({ t, lang, role, profile, stations, refreshKey }) {
     downloadCsv(`report-${isoDate(new Date())}.csv`, [header, ...body])
   }
 
+  // Location and station stack: choosing a location narrows the stations
+  // offered, and both narrow on top of whatever period is selected.
+  const locations = locationsOf(stations)
+  const stationChoices = location
+    ? stations.filter((s) => (s.location || '').trim() === location)
+    : stations
+
   const fmtDay = (day) => {
     const d = new Date(day + 'T00:00:00')
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
@@ -142,20 +151,40 @@ export function Reports({ t, lang, role, profile, stations, refreshKey }) {
             </button>
           ))}
         </div>
-        {!isStation && stations.length > 1 && (
-          <select
-            className="inp"
-            value={stationId}
-            aria-label={t.station}
-            onChange={(e) => setStationId(e.target.value)}
-          >
-            <option value="">{t.allStations}</option>
-            {stations.map((s) => (
-              <option key={s.id} value={s.id}>
-                {lang === 'ku' ? s.name_ku : s.name_en}
-              </option>
-            ))}
-          </select>
+        {!isStation && (locations.length > 1 || stationChoices.length > 1) && (
+          <div className="fsel">
+            {locations.length > 1 && (
+              <select
+                className="inp"
+                value={location}
+                aria-label={t.location}
+                onChange={(e) => {
+                  setLocation(e.target.value)
+                  setStationId('')
+                }}
+              >
+                <option value="">{t.allLocations}</option>
+                {locations.map((loc) => (
+                  <option key={loc} value={loc}>{loc}</option>
+                ))}
+              </select>
+            )}
+            {stationChoices.length > 1 && (
+              <select
+                className="inp"
+                value={stationId}
+                aria-label={t.station}
+                onChange={(e) => setStationId(e.target.value)}
+              >
+                <option value="">{t.allStations}</option>
+                {stationChoices.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {lang === 'ku' ? s.name_ku : s.name_en}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         )}
       </div>
 

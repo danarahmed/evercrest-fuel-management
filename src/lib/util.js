@@ -92,3 +92,13 @@ export function dayLabel(value, t) {
   if (diff < 7) return d.toLocaleDateString('en-GB', { weekday: 'long' })
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
+
+/** Distinct, trimmed station locations, for the filter dropdowns. */
+export function locationsOf(stations) {
+  const seen = new Set()
+  for (const s of stations) {
+    const v = (s.location || '').trim()
+    if (v) seen.add(v)
+  }
+  return [...seen].sort((a, b) => a.localeCompare(b))
+}

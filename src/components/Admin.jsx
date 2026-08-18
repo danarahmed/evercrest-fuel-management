@@ -310,6 +310,7 @@ function Stations({ t, lang, stations, reload }) {
     if (busy) return
     setProblem('')
     if (!form.code.trim() || !form.name_en.trim()) return setProblem(t.code + ' + ' + t.nameEn)
+    if (!form.location.trim()) return setProblem(t.locationReq)
     setBusy(true)
     try {
       await write(
@@ -317,7 +318,7 @@ function Stations({ t, lang, stations, reload }) {
           code: form.code.trim().toUpperCase(),
           name_en: form.name_en.trim(),
           name_ku: form.name_ku.trim() || form.name_en.trim(),
-          location: form.location.trim() || null,
+          location: form.location.trim(),
           phone: form.phone.trim() || null,
         }),
       )
