@@ -68,17 +68,39 @@ export async function countOrders(filters = {}) {
   return count ?? 0
 }
 
-export async function fetchReference() {
-  const [me, stations, products] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', (await supabase.auth.getUser()).data.user?.id).single(),
-    supabase.from('stations').select('*').order('code'),
-    supabase.from('products').select('*').order('sort_order'),
-  ])
-  if (me.error) throw new Error(errText(me.error, 'profile-failed'))
-  return {
-    profile: me.data,
-    stations: stations.data || [],
-    products: products.data || [],
+/**
+ * Load the profile, stations and fuel types the whole app is built on.
+ *
+ * `userId` comes from the session the caller already holds. The previous
+ * version called auth.getUser() inline instead, which added a round-trip on
+ * every load and opened a window right after sign-in where a parallel request
+ * could go out before the token was attached — that produced a 401 on
+ * /products, and because only the profile error was checked, the app carried
+ * on with an empty fuel list and a New order form that could never be
+ * submitted. Every one of the three now fails loudly, and a single retry
+ * absorbs the transient case so nobody sees it.
+ */
+export async function fetchReference(userId) {
+  const attempt = async () => {
+    const [me, stations, products] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', userId).single(),
+      supabase.from('stations').select('*').order('code'),
+      supabase.from('products').select('*').order('sort_order'),
+    ])
+    const failed = me.error || stations.error || products.error
+    if (failed) throw new Error(errText(failed, 'profile-failed'))
+    return {
+      profile: me.data,
+      stations: stations.data || [],
+      products: products.data || [],
+    }
+  }
+
+  try {
+    return await attempt()
+  } catch {
+    await new Promise((r) => setTimeout(r, 600))
+    return attempt()
   }
 }
 

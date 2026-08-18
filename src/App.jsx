@@ -73,7 +73,7 @@ export function App() {
     if (!session) return
     setBoot('loading')
     try {
-      const ref = await fetchReference()
+      const ref = await fetchReference(session.user.id)
       if (!alive.current) return
       setProfile(ref.profile)
       setStations(ref.stations)

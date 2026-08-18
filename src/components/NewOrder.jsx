@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ErrorBox, Ok } from './common'
+import { Empty, ErrorBox, Ok } from './common'
 import { rpc } from '../lib/api'
 import { isoDate, num } from '../lib/util'
 import { translateError } from './ActionSheet'
@@ -66,11 +66,13 @@ export function NewOrder({ t, lang, products, stations, profile, onDone }) {
     }
   }
 
+  // Reachable when every fuel type has been switched off. The message used to
+  // be the "add a station first" one, which meant nothing to a station user.
   if (!products.length) {
     return (
       <div className="panel">
         <h2>{t.tabNew}</h2>
-        <p className="lede">{t.emptyStationsP}</p>
+        <Empty title={t.noFuel} msg={t.noFuelP} />
       </div>
     )
   }
