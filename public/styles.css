@@ -684,3 +684,9 @@ html[dir="rtl"] .switch[aria-checked="true"]::after{transform:translateX(-18px)}
 .segp button[aria-pressed="true"]{border-color:var(--brand-ink);background:var(--brand-tint);color:var(--brand-ink);font-weight:600}
 
 .req{color:var(--flag);font-weight:700;margin-inline-start:2px}
+
+/* report: custom day range + filters toggle */
+.drange{flex:1;min-width:130px;display:flex;flex-direction:column;gap:3px}
+.drange span{font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em}
+html[dir="rtl"] .drange span{text-transform:none;letter-spacing:0;font-size:12px}
+.filterbtn{margin-top:8px;align-self:flex-start}

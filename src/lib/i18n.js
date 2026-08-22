@@ -375,7 +375,12 @@ export const DICT = {
     "disputeOpened": "Recorded as a discrepancy for review.",
     "disputeResolved": "Discrepancy resolved.",
     "loadingMsg": "Loading…",
-    "fillRequired": "Fill in all required fields."
+    "fillRequired": "Fill in all required fields.",
+    "trendByDay": "Volume by day",
+    "filtersWord": "Filters",
+    "customRange": "Custom range",
+    "fulfilmentShort": "Fulfilment",
+    "noDataYet": "No data in this range"
   },
   "ku": {
     "dir": "rtl",
@@ -752,7 +757,12 @@ export const DICT = {
     "disputeOpened": "وەک ناکۆکی تۆمارکرا بۆ پێداچوونەوە.",
     "disputeResolved": "ناکۆکی چارەسەرکرا.",
     "loadingMsg": "باردەکرێت…",
-    "fillRequired": "هەموو خانە پێویستەکان پڕبکەرەوە."
+    "fillRequired": "هەموو خانە پێویستەکان پڕبکەرەوە.",
+    "trendByDay": "بڕ بەپێی ڕۆژ",
+    "filtersWord": "فلتەرەکان",
+    "customRange": "ماوەی دیاریکراو",
+    "fulfilmentShort": "جێبەجێکردن",
+    "noDataYet": "هیچ داتایەک نییە لەم ماوەیەدا"
   }
 }
 
