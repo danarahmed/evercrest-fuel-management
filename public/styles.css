@@ -690,3 +690,6 @@ html[dir="rtl"] .switch[aria-checked="true"]::after{transform:translateX(-18px)}
 .drange span{font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em}
 html[dir="rtl"] .drange span{text-transform:none;letter-spacing:0;font-size:12px}
 .filterbtn{margin-top:8px;align-self:flex-start}
+
+.pushbox{background:var(--brand-tint);border-radius:10px;padding:11px 12px;margin-bottom:12px}
+.pushbox .hint.block{margin:7px 0 0}

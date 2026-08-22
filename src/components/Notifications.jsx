@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Sheet, Empty } from './common'
+import { Sheet, Empty, ErrorBox } from './common'
 import { fetchNotifications, unreadCount, markNotificationRead, markAllRead } from '../lib/api'
 import { orderNo, stamp } from '../lib/util'
+import { pushSupported, pushPermission, isPushSubscribed, enablePush, disablePush } from '../lib/push'
 
 /**
  * In-app notification bell. Shows the unread count in the header; the panel
@@ -12,6 +13,8 @@ export function Notifications({ t, refreshKey, onOpenOrder }) {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState([])
   const [unread, setUnread] = useState(0)
+  const [pushState, setPushState] = useState('off') // off | on | denied | unsupported | busy
+  const [pushErr, setPushErr] = useState('')
 
   const refreshCount = useCallback(() => {
     unreadCount().then(setUnread).catch(() => {})
@@ -19,11 +22,27 @@ export function Notifications({ t, refreshKey, onOpenOrder }) {
 
   useEffect(() => { refreshCount() }, [refreshCount, refreshKey])
 
+  const syncPush = useCallback(async () => {
+    if (!pushSupported()) return setPushState('unsupported')
+    if (pushPermission() === 'denied') return setPushState('denied')
+    setPushState((await isPushSubscribed()) ? 'on' : 'off')
+  }, [])
+
   const load = useCallback(() => {
     fetchNotifications().then(setItems).catch(() => setItems([]))
   }, [])
 
-  const openPanel = () => { setOpen(true); load() }
+  const openPanel = () => { setOpen(true); setPushErr(''); load(); syncPush() }
+
+  const turnOnPush = async () => {
+    setPushErr(''); setPushState('busy')
+    try { await enablePush(); setPushState('on') }
+    catch (e) {
+      if (e?.message === 'denied') { setPushState('denied') }
+      else { setPushState('off'); setPushErr(t.genericErr) }
+    }
+  }
+  const turnOffPush = async () => { await disablePush(); setPushState('off') }
 
   const handleClick = async (n) => {
     setOpen(false)
@@ -47,6 +66,26 @@ export function Notifications({ t, refreshKey, onOpenOrder }) {
 
       {open && (
         <Sheet title={t.notifications} onClose={() => setOpen(false)}>
+          {pushState !== 'unsupported' && (
+            <div className="pushbox">
+              {pushState === 'on' ? (
+                <div className="tog" style={{ borderBottom: 0, padding: '2px 0' }}>
+                  <span className="tl2">🔔 {t.pushOnMsg}</span>
+                  <button className="btn btn-ghost btn-sm" onClick={turnOffPush}>{t.turnOffPush}</button>
+                </div>
+              ) : pushState === 'denied' ? (
+                <p className="hint block" style={{ margin: 0 }}>{t.pushDeniedMsg}</p>
+              ) : (
+                <>
+                  <button className="btn btn-go wide" disabled={pushState === 'busy'} onClick={turnOnPush}>
+                    {pushState === 'busy' ? t.pushWorking : '🔔 ' + t.enablePush}
+                  </button>
+                  <p className="hint block">{t.pushIosHint}</p>
+                </>
+              )}
+              <ErrorBox>{pushErr}</ErrorBox>
+            </div>
+          )}
           {items.length === 0 ? (
             <Empty title={t.noNotifications} msg={t.noNotificationsP} />
           ) : (

@@ -380,7 +380,13 @@ export const DICT = {
     "filtersWord": "Filters",
     "customRange": "Custom range",
     "fulfilmentShort": "Fulfilment",
-    "noDataYet": "No data in this range"
+    "noDataYet": "No data in this range",
+    "enablePush": "Turn on alerts on this device",
+    "pushOnMsg": "Alerts are on for this device.",
+    "pushWorking": "Turning on…",
+    "pushDeniedMsg": "Notifications are blocked. Turn them on in your browser settings, then try again.",
+    "pushIosHint": "On iPhone: open in Safari, tap Share → Add to Home Screen, then turn on alerts.",
+    "turnOffPush": "Turn off alerts"
   },
   "ku": {
     "dir": "rtl",
@@ -762,7 +768,13 @@ export const DICT = {
     "filtersWord": "فلتەرەکان",
     "customRange": "ماوەی دیاریکراو",
     "fulfilmentShort": "جێبەجێکردن",
-    "noDataYet": "هیچ داتایەک نییە لەم ماوەیەدا"
+    "noDataYet": "هیچ داتایەک نییە لەم ماوەیەدا",
+    "enablePush": "چالاککردنی ئاگادارکردنەوە لەم ئامێرەدا",
+    "pushOnMsg": "ئاگادارکردنەوە چالاکە لەم ئامێرەدا.",
+    "pushWorking": "چالاک دەکرێت…",
+    "pushDeniedMsg": "ئاگادارکردنەوەکان بلۆککراون. لە ڕێکخستنی وێبگەڕەکەت چالاکیان بکە، پاشان دووبارە هەوڵ بدەوە.",
+    "pushIosHint": "لە ئایفۆن: لە Safari بیکەرەوە، Share → Add to Home Screen، پاشان ئاگادارکردنەوە چالاک بکە.",
+    "turnOffPush": "کوژاندنەوەی ئاگادارکردنەوە"
   }
 }
 

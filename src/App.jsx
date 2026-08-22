@@ -67,6 +67,10 @@ export function App() {
   const alive = useRef(true)
   useEffect(() => () => { alive.current = false }, [])
 
+  // Register the service worker so push click-through works (no prompt here;
+  // permission is only requested when the user turns alerts on).
+  useEffect(() => { import('./lib/push').then((m) => m.registerSW()).catch(() => {}) }, [])
+
   useEffect(() => {
     document.documentElement.dir = t.dir
     document.documentElement.lang = lang
