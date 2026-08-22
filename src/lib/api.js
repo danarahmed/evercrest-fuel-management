@@ -16,6 +16,7 @@ export async function fetchOrders({
   stationId,
   productId,
   location,
+  priority,
   actorId,
   search,
   fromDate,
@@ -33,6 +34,7 @@ export async function fetchOrders({
   if (stationId) q = q.eq('station_id', stationId)
   if (productId) q = q.eq('product_id', productId)
   if (location) q = q.eq('station_location', location)
+  if (priority) q = q.eq('priority', priority)
   if (fromDate) q = q.gte('created_at', fromDate.toISOString())
   if (toDate) q = q.lt('created_at', toDate.toISOString())
 
@@ -49,6 +51,8 @@ export async function fetchOrders({
       `truck_no.ilike.${like}`,
       `driver_name.ilike.${like}`,
       `manifest_no.ilike.${like}`,
+      `dispatch_reference.ilike.${like}`,
+      `receiver_name.ilike.${like}`,
       `station_location.ilike.${like}`,
       `station_name_en.ilike.${like}`,
       `station_name_ku.ilike.${like}`,
@@ -144,6 +148,13 @@ export async function dashboardMetrics({ fromDate, toDate } = {}) {
   return (Array.isArray(data) ? data[0] : data) || {}
 }
 
+/** One order row from the denormalized view, by id (RLS still applies). */
+export async function getOrder(id) {
+  const { data, error } = await supabase.from('orders_view').select('*').eq('id', id).single()
+  if (error) throw new Error(errText(error, 'load-failed'))
+  return data
+}
+
 export async function fetchEvents(orderId) {
   const { data, error } = await supabase
     .from('order_events')
@@ -222,25 +233,55 @@ async function uploadManifest(order, file, prefix) {
   return path
 }
 
+// ============================================================
+//  State-machine transitions. Each wraps one SECURITY DEFINER RPC;
+//  the server re-checks role, source status, reasons and version.
+//  `version` is the optimistic-concurrency token from the order row.
+// ============================================================
+
+/** Create a draft, or edit a draft / returned order. Returns the order id. */
+export async function saveOrder({ id = null, productId, quantity, neededDate, priority = 'normal', note, stationId = null, version = null }) {
+  return rpc('save_order', {
+    p_order: id, p_product: productId, p_quantity: quantity, p_needed_date: neededDate,
+    p_priority: priority, p_note: note ?? null, p_station: stationId, p_version: version,
+  })
+}
+
+export const submitOrder = (id, version) => rpc('submit_order', { p_order: id, p_version: version })
+
+export const approveOrder = ({ id, approvedQuantity = null, approvedDate = null, reason = null, version }) =>
+  rpc('approve_order', {
+    p_order: id, p_approved_quantity: approvedQuantity, p_approved_date: approvedDate,
+    p_reason: reason, p_version: version,
+  })
+
+export const returnOrder = ({ id, reason, version }) =>
+  rpc('return_order', { p_order: id, p_reason: reason, p_version: version })
+
+export const rejectOrder = ({ id, reason, version }) =>
+  rpc('reject_order', { p_order: id, p_reason: reason, p_version: version })
+
+export const markPreparing = ({ id, note = null, version }) =>
+  rpc('mark_preparing', { p_order: id, p_note: note, p_version: version })
+
+export const resolveDispute = ({ id, complete, note, version }) =>
+  rpc('resolve_dispute', { p_order: id, p_complete: complete, p_note: note, p_version: version })
+
+export const cancelOrder = ({ id, reason, version }) =>
+  rpc('cancel_order', { p_order: id, p_reason: reason, p_version: version })
+
 /**
- * Mark an order loaded, optionally attaching the manifest the yard issued.
- *
- * The file goes into the receiving station's folder, so the station can open
- * it as soon as the truck is on the way.
+ * Dispatch a prepared order. Uploads the load manifest into the receiving
+ * station's folder first, then records the dispatch; on failure the orphaned
+ * object is removed.
  */
-export async function markLoadedWithManifest({
-  order, file, quantity, truck, driver, note, manifestNo,
-}) {
+export async function markDispatched({ order, file, quantity, truck, driver, dispatchRef, note, manifestNo, version }) {
   const path = file ? await uploadManifest(order, file, 'load-') : null
   try {
-    await rpc('mark_loaded', {
-      p_order: order.id,
-      p_loaded_quantity: quantity,
-      p_truck: truck,
-      p_driver: driver,
-      p_note: note,
-      p_manifest_path: path,
-      p_manifest_no: manifestNo,
+    await rpc('mark_dispatched', {
+      p_order: order.id, p_loaded_quantity: quantity, p_truck: truck, p_driver: driver,
+      p_dispatch_ref: dispatchRef ?? null, p_note: note ?? null,
+      p_manifest_path: path, p_manifest_no: manifestNo ?? null, p_version: version,
     })
   } catch (e) {
     if (path) await supabase.storage.from('manifests').remove([path]).catch(() => {})
@@ -248,19 +289,69 @@ export async function markLoadedWithManifest({
   }
 }
 
-export async function confirmDeliveryWithManifest({ order, file, received, manifestNo, note }) {
+/**
+ * Station confirms receipt. Returns 'delivered' on an exact match or 'disputed'
+ * when the received quantity differs (a discrepancy reason is then required).
+ */
+export async function confirmDelivery({ order, file, received, receiver, note, manifestNo, discrepancyReason, version }) {
   const path = await uploadManifest(order, file, '')
-
   try {
-    await rpc('confirm_delivery', {
-      p_order: order.id,
-      p_manifest_path: path,
-      p_received: received,
-      p_manifest_no: manifestNo,
-      p_note: note,
+    return await rpc('confirm_delivery', {
+      p_order: order.id, p_received: received, p_receiver: receiver ?? null,
+      p_manifest_path: path, p_manifest_no: manifestNo ?? null, p_note: note ?? null,
+      p_discrepancy_reason: discrepancyReason ?? null, p_version: version,
     })
   } catch (e) {
     await supabase.storage.from('manifests').remove([path]).catch(() => {})
     throw e
   }
+}
+
+// ============================================================
+//  Notifications (RLS scopes every row to the signed-in recipient)
+// ============================================================
+export async function fetchNotifications(limit = 40) {
+  const { data, error } = await supabase
+    .from('notifications').select('*').order('created_at', { ascending: false }).limit(limit)
+  if (error) throw new Error(errText(error, 'load-failed'))
+  return data || []
+}
+
+export async function unreadCount() {
+  const { count, error } = await supabase
+    .from('notifications').select('id', { count: 'exact', head: true }).eq('is_read', false)
+  if (error) return 0
+  return count ?? 0
+}
+
+export async function markNotificationRead(id) {
+  const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', id)
+  if (error) throw new Error(errText(error, 'write-failed'))
+}
+
+export async function markAllRead() {
+  const { error } = await supabase.from('notifications').update({ is_read: true }).eq('is_read', false)
+  if (error) throw new Error(errText(error, 'write-failed'))
+}
+
+// ============================================================
+//  Workflow settings (single row; admin writes, everyone reads)
+// ============================================================
+/** Recent audit events across every order the caller may see (admin: all). */
+export async function fetchAuditLog(limit = 100) {
+  const { data, error } = await supabase
+    .from('order_events').select('*').order('created_at', { ascending: false }).limit(limit)
+  if (error) throw new Error(errText(error, 'load-failed'))
+  return data || []
+}
+
+export async function fetchSettings() {
+  const { data, error } = await supabase.from('app_settings').select('data').eq('id', 1).single()
+  if (error) throw new Error(errText(error, 'load-failed'))
+  return data?.data || {}
+}
+
+export async function saveSettings(data) {
+  const { error } = await supabase.from('app_settings').update({ data }).eq('id', 1)
+  if (error) throw new Error(errText(error, 'write-failed'))
 }

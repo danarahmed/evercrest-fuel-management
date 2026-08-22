@@ -14,8 +14,9 @@ import { translateError } from './ActionSheet'
  *   on_way   — loaded but the station has not signed for it yet (subset of loaded)
  *   received — the station signed for it
  */
+import { ALL_STATUSES } from '../lib/workflow'
 const PERIODS = ['pToday', 'p7', 'p30', 'p90', 'allTime']
-const STATUS_CHOICES = ['pending', 'approved', 'loaded', 'delivered', 'rejected', 'cancelled']
+const STATUS_CHOICES = ALL_STATUSES
 
 export function Reports({ t, lang, role, profile, stations, refreshKey }) {
   const [period, setPeriod] = useState('p30')

@@ -79,8 +79,7 @@ export function errText(error, fallback) {
   return m || fallback
 }
 
-export const OPEN_STATUSES = ['pending', 'approved', 'loaded']
-export const DONE_STATUSES = ['delivered', 'rejected', 'cancelled']
+export { OPEN_STATUSES, DONE_STATUSES } from './workflow.js'
 
 /** Day bucket label for grouping a list by date. */
 export function dayLabel(value, t) {

@@ -1,48 +1,50 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from './lib/supabase'
 import { DICT, loadLang, saveLang } from './lib/i18n'
-import { fetchReference, countOrders } from './lib/api'
+import { fetchReference, countOrders, fetchSettings, getOrder } from './lib/api'
 import { SignIn, Inactive } from './components/Auth'
 import { OrdersList } from './components/OrdersList'
 import { NewOrder } from './components/NewOrder'
 import { Reports } from './components/Reports'
-import { Overview } from './components/Overview'
-import { Users, NewUser, StationList, Fuels } from './components/Admin'
+import { Dashboard } from './components/Dashboard'
+import { Users, NewUser, StationList, Fuels, Settings, AuditLog } from './components/Admin'
 import { Account } from './components/Account'
 import { ActionSheet } from './components/ActionSheet'
+import { OrderDetail } from './components/OrderDetail'
+import { Notifications } from './components/Notifications'
 import { Empty, Spinner } from './components/common'
 import { Mark } from './components/Logo'
 
-/**
- * Tabs per role.
- *
- * The office roles work from queues and the report, so a personal "my orders"
- * list was just a fourth way to look at the same board. Only the station keeps
- * it, because for them it is not a filter — it is how they follow their own
- * requests from pending through to delivered.
- */
+// Tabs per role — each role only ever sees what it can act on.
 const NAV = {
-  station: ['new', 'mine', 'reports'],
-  manager: ['queue', 'board', 'reports'],
-  storage: ['toload', 'transit', 'board', 'reports'],
-  admin: ['overview', 'board', 'new', 'reports', 'users', 'newuser', 'fuels'],
+  station: ['dashboard', 'new', 'mine', 'reports'],
+  manager: ['dashboard', 'queue', 'board', 'reports'],
+  storage: ['dashboard', 'toprepare', 'awaiting', 'board', 'reports'],
+  admin: ['dashboard', 'board', 'reports', 'users', 'stations', 'fuels', 'settings', 'audit'],
 }
 
 const TAB_LABEL = {
-  overview: 'tabOverview',
-  mine: 'myActivity',
+  dashboard: 'tabDashboard',
   new: 'tabNew',
-  queue: 'tabQueue',
-  toload: 'tabLoad',
-  transit: 'tabTransit',
+  mine: 'myActivity',
+  queue: 'tabAwaiting',
+  toprepare: 'tabReady',
+  awaiting: 'tabAwaitConfirm',
   board: 'tabAll',
   reports: 'tabReports',
   users: 'tabUsers',
-  newuser: 'tabAddNew',
-  fuels: 'tabSetup',
+  stations: 'tabStations',
+  fuels: 'tabFuelTypes',
+  settings: 'tabSettings',
+  audit: 'tabAudit',
 }
 
-const QUEUE_STATUS = { queue: ['pending'], toload: ['approved'], transit: ['loaded'] }
+// Statuses behind each queue tab (drives both the list scope and the badge).
+const QUEUE_STATUS = {
+  queue: ['pending_approval'],
+  toprepare: ['approved', 'preparing'],
+  awaiting: ['dispatched'],
+}
 
 export function App() {
   const [lang, setLang] = useState(loadLang)
@@ -52,9 +54,12 @@ export function App() {
   const [profile, setProfile] = useState(null)
   const [stations, setStations] = useState([])
   const [products, setProducts] = useState([])
-  const [boot, setBoot] = useState('loading') // loading | ready | error
+  const [settings, setSettings] = useState({})
+  const [boot, setBoot] = useState('loading')
   const [tab, setTab] = useState('')
   const [action, setAction] = useState(null)
+  const [editOrder, setEditOrder] = useState(null)
+  const [notifOrder, setNotifOrder] = useState(null)
   const [showAccount, setShowAccount] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [badges, setBadges] = useState({})
@@ -83,6 +88,7 @@ export function App() {
       setProfile(ref.profile)
       setStations(ref.stations)
       setProducts(ref.products)
+      fetchSettings().then((s) => alive.current && setSettings(s)).catch(() => {})
       setBoot('ready')
     } catch {
       if (!alive.current) return
@@ -91,29 +97,21 @@ export function App() {
   }, [session])
 
   useEffect(() => {
-    if (!session) {
-      setProfile(null)
-      setBoot('loading')
-      return
-    }
+    if (!session) { setProfile(null); setBoot('loading'); return }
     loadReference()
   }, [session, loadReference])
 
   const refresh = useCallback(() => setRefreshKey((n) => n + 1), [])
 
-  // Live updates. A single action writes the order row plus event rows, so the
-  // events arrive in a burst; debounce them into one quiet refresh rather than
-  // several full refetches, which would otherwise thrash the list on screen.
+  // Live updates: order + notification changes both nudge a debounced refresh.
   useEffect(() => {
     if (!session) return
     let timer
-    const bump = () => {
-      clearTimeout(timer)
-      timer = setTimeout(() => setRefreshKey((n) => n + 1), 400)
-    }
+    const bump = () => { clearTimeout(timer); timer = setTimeout(() => setRefreshKey((n) => n + 1), 400) }
     const channel = supabase
-      .channel('orders-live')
+      .channel('fd-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, bump)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, bump)
       .subscribe()
     return () => { clearTimeout(timer); supabase.removeChannel(channel) }
   }, [session])
@@ -122,7 +120,6 @@ export function App() {
   const tabs = useMemo(() => NAV[role] || [], [role])
   const current = tabs.includes(tab) ? tab : tabs[0]
 
-  // Badge counts for the queue tabs.
   useEffect(() => {
     if (!role) return
     let stale = false
@@ -139,9 +136,7 @@ export function App() {
   if (session === undefined) return null
   if (!session) return <SignIn t={t} lang={lang} setLang={setLang} />
 
-  if (boot === 'loading') {
-    return <div className="auth"><Spinner label={t.loadingData} /></div>
-  }
+  if (boot === 'loading') return <div className="auth"><Spinner label={t.loadingData} /></div>
 
   if (boot === 'error' || !profile) {
     return (
@@ -150,9 +145,7 @@ export function App() {
           <Empty title={t.loadFailed} msg={t.checkNet} />
           <button className="btn btn-go wide" onClick={loadReference}>{t.retry}</button>
           <div className="center">
-            <button className="btn btn-ghost btn-sm" onClick={() => supabase.auth.signOut().catch(() => {})}>
-              {t.signOut}
-            </button>
+            <button className="btn btn-ghost btn-sm" onClick={() => supabase.auth.signOut().catch(() => {})}>{t.signOut}</button>
           </div>
         </div>
       </div>
@@ -164,39 +157,37 @@ export function App() {
   const activeStations = stations.filter((s) => s.is_active)
   const activeProducts = products.filter((p) => p.is_active)
 
-  const onAct = (a, order) => setAction({ a, order })
+  // Central action router. "edit" jumps to the order form; everything else
+  // opens the transition sheet.
+  const onAct = (a, order) => {
+    if (a === 'edit') { setEditOrder(order); setNotifOrder(null); setTab('new') }
+    else setAction({ a, order })
+  }
+
+  const openOrderById = async (id) => {
+    try { const o = await getOrder(id); setNotifOrder(o) } catch { /* ignore */ }
+  }
 
   const listFor = (key) => {
-    // "My orders" for a station means every order for that station — including
-    // one an admin placed on their behalf — not only the ones this account
-    // personally touched. RLS already limits a station to its own station, so
-    // scoping by station_id is both correct and safe. Other roles that ever get
-    // a "mine" tab fall back to orders they acted on.
-    const mineScope =
-      role === 'station' && profile.station_id
-        ? { stationId: profile.station_id }
-        : { actorId: profile.id }
+    const mineScope = role === 'station' && profile.station_id
+      ? { stationId: profile.station_id }
+      : { actorId: profile.id }
     const scope = key === 'mine' ? mineScope : QUEUE_STATUS[key] ? { statuses: QUEUE_STATUS[key] } : {}
     const empties = {
       mine: { title: t.emptyMine, msg: t.emptyMineP },
       queue: { title: t.emptyQueue, msg: t.emptyQueueP },
-      toload: { title: t.emptyLoad, msg: t.emptyLoadP },
-      transit: { title: t.emptyTransit, msg: t.emptyTransitP },
+      toprepare: { title: t.emptyLoad, msg: t.emptyLoadP },
+      awaiting: { title: t.emptyTransit, msg: t.emptyTransitP },
       board: { title: t.emptyAll, msg: t.emptyAllP },
     }
+    const isQueue = key === 'queue' || key === 'toprepare' || key === 'awaiting'
     return (
       <OrdersList
-        key={key}
-        t={t}
-        lang={lang}
-        role={role}
-        scope={scope}
-        stations={activeStations}
-        products={activeProducts}
-        refreshKey={refreshKey}
-        onAct={onAct}
-        empty={empties[key]}
-        showFilters={key !== 'queue' && key !== 'toload' && key !== 'transit'}
+        key={key} t={t} lang={lang} role={role} scope={scope}
+        stations={activeStations} products={activeProducts}
+        refreshKey={refreshKey} onAct={onAct} empty={empties[key]}
+        showFilters={!isQueue}
+        firstAction={key === 'mine' && role === 'station' ? { label: t.newOrderCta, onClick: () => setTab('new') } : null}
       />
     )
   }
@@ -212,12 +203,9 @@ export function App() {
               <span>{profile.full_name} · {t['r_' + role]}</span>
             </div>
           </div>
-          <button className="tbtn mono" onClick={() => setLang(lang === 'ku' ? 'en' : 'ku')}>
-            {lang === 'ku' ? 'EN' : 'KU'}
-          </button>
-          <button className="tbtn" onClick={() => setShowAccount(true)} aria-label={t.tabAccount}>
-            {t.tabAccount}
-          </button>
+          <Notifications t={t} refreshKey={refreshKey} onOpenOrder={openOrderById} />
+          <button className="tbtn mono" onClick={() => setLang(lang === 'ku' ? 'en' : 'ku')}>{lang === 'ku' ? 'EN' : 'KU'}</button>
+          <button className="tbtn" onClick={() => setShowAccount(true)} aria-label={t.tabAccount}>{t.tabAccount}</button>
           <button className="tbtn" onClick={() => supabase.auth.signOut().catch(() => {})}>{t.signOut}</button>
         </div>
       </header>
@@ -225,12 +213,7 @@ export function App() {
       <nav className="tabs">
         <div className="tabs-in">
           {tabs.map((key) => (
-            <button
-              key={key}
-              className="tab"
-              aria-selected={current === key}
-              onClick={() => setTab(key)}
-            >
+            <button key={key} className="tab" aria-selected={current === key} onClick={() => { setTab(key); if (key !== 'new') setEditOrder(null) }}>
               {t[TAB_LABEL[key]]}
               {badges[key] ? <span className="cnt">{badges[key]}</span> : null}
             </button>
@@ -239,43 +222,45 @@ export function App() {
       </nav>
 
       <main className="wrap">
+        {current === 'dashboard' && (
+          <Dashboard t={t} lang={lang} role={role} profile={profile} refreshKey={refreshKey} onAct={onAct} />
+        )}
         {current === 'new' && (
           <NewOrder
             t={t} lang={lang} products={activeProducts} stations={activeStations}
-            profile={profile} onDone={refresh}
+            profile={profile} settings={settings} editOrder={editOrder}
+            onCancelEdit={() => setEditOrder(null)}
+            onDone={(r) => { if (r?.closeEdit) setEditOrder(null); refresh() }}
           />
         )}
         {current === 'users' && (
-          <Users t={t} lang={lang} stations={stations} reload={loadReference} meId={profile.id} />
-        )}
-        {current === 'newuser' && (
-          <NewUser t={t} lang={lang} stations={stations} reload={loadReference} />
-        )}
-        {current === 'fuels' && (
           <>
-            <StationList t={t} reload={loadReference} />
-            <Fuels t={t} lang={lang} products={products} reload={loadReference} />
+            <Users t={t} lang={lang} stations={stations} reload={loadReference} meId={profile.id} />
+            <NewUser t={t} lang={lang} stations={stations} reload={loadReference} />
           </>
         )}
-        {current === 'overview' && (
-          <Overview t={t} lang={lang} stations={activeStations} refreshKey={refreshKey} />
-        )}
+        {current === 'stations' && <StationList t={t} lang={lang} stations={stations} reload={loadReference} />}
+        {current === 'fuels' && <Fuels t={t} lang={lang} products={products} reload={loadReference} />}
+        {current === 'settings' && <Settings t={t} />}
+        {current === 'audit' && <AuditLog t={t} onOpenOrder={openOrderById} />}
         {current === 'reports' && (
-          <Reports
-            t={t} lang={lang} role={role} profile={profile}
-            stations={activeStations} refreshKey={refreshKey}
-          />
+          <Reports t={t} lang={lang} role={role} profile={profile} stations={activeStations} refreshKey={refreshKey} />
         )}
-        {['mine', 'board', 'queue', 'toload', 'transit'].includes(current) && listFor(current)}
+        {['mine', 'board', 'queue', 'toprepare', 'awaiting'].includes(current) && listFor(current)}
       </main>
 
       {action && (
         <ActionSheet
-          act={action.a}
-          order={action.order}
-          t={t}
+          act={action.a} order={action.order} t={t} settings={settings}
           onClose={() => setAction(null)}
           onDone={() => { setAction(null); refresh() }}
+        />
+      )}
+
+      {notifOrder && (
+        <OrderDetail
+          order={notifOrder} t={t} lang={lang} role={role}
+          onClose={() => setNotifOrder(null)} onAct={onAct}
         />
       )}
 

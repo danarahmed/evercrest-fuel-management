@@ -4,6 +4,7 @@ import { OrderDetail } from './OrderDetail'
 import { Empty, ErrorBox, Spinner } from './common'
 import { fetchOrders, PAGE_SIZE } from '../lib/api'
 import { num, dayLabel, locationsOf, OPEN_STATUSES, DONE_STATUSES } from '../lib/util'
+import { PRIORITIES } from '../lib/workflow'
 import { translateError } from './ActionSheet'
 
 /**
@@ -30,10 +31,12 @@ export function OrdersList({
   onAct,
   empty,
   showFilters = true,
+  firstAction = null,
 }) {
   const [status, setStatus] = useState('')
   const [stationId, setStationId] = useState('')
   const [location, setLocation] = useState('')
+  const [priority, setPriority] = useState('')
   const [search, setSearch] = useState('')
   const [term, setTerm] = useState('')
 
@@ -72,6 +75,7 @@ export function OrdersList({
           statuses,
           stationId: stationId || scope.stationId || undefined,
           location: location || undefined,
+          priority: priority || undefined,
           actorId: scope.actorId,
           search: term,
           page: nextPage,
@@ -87,7 +91,7 @@ export function OrdersList({
         setState('error')
       }
     },
-    [statuses, stationId, location, scope.actorId, scope.stationId, term, t],
+    [statuses, stationId, location, priority, scope.actorId, scope.stationId, term, t],
   )
 
   // A filter or scope change reloads from page 0 with a spinner.
@@ -105,6 +109,7 @@ export function OrdersList({
         statuses,
         stationId: stationId || scope.stationId || undefined,
         location: location || undefined,
+        priority: priority || undefined,
         actorId: scope.actorId,
         search: term,
         page: 0,
@@ -116,7 +121,7 @@ export function OrdersList({
     } catch {
       // keep the current rows on a background blip
     }
-  }, [statuses, stationId, location, scope.actorId, scope.stationId, term, page])
+  }, [statuses, stationId, location, priority, scope.actorId, scope.stationId, term, page])
 
   const quietRef = useRef(quietRefresh)
   quietRef.current = quietRefresh
@@ -130,7 +135,7 @@ export function OrdersList({
   }, [refreshKey])
 
   const busy = state === 'loading'
-  const filtered = Boolean(status || stationId || location || term)
+  const filtered = Boolean(status || stationId || location || priority || term)
   const shown = rows.length
   const hasMore = shown < total
 
@@ -138,6 +143,7 @@ export function OrdersList({
     setStatus('')
     setStationId('')
     setLocation('')
+    setPriority('')
     setSearch('')
     setTerm('')
   }
@@ -212,6 +218,17 @@ export function OrdersList({
                 ))}
               </select>
             )}
+            <select
+              className="inp"
+              value={priority}
+              aria-label={t.priorityFilter}
+              onChange={(e) => setPriority(e.target.value)}
+            >
+              <option value="">{t.allPriorities}</option>
+              {PRIORITIES.map((p) => (
+                <option key={p} value={p}>{t['pr_' + p]}</option>
+              ))}
+            </select>
           </div>
         </div>
       )}
@@ -237,6 +254,9 @@ export function OrdersList({
         <Empty
           title={filtered ? t.noResults : empty?.title || t.emptyMine}
           msg={filtered ? t.noResultsP : empty?.msg || t.emptyMineP}
+          action={!filtered && firstAction ? (
+            <button className="btn btn-go" onClick={firstAction.onClick}>{firstAction.label}</button>
+          ) : null}
         />
       )}
 

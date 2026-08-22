@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { ErrorBox, Ok, Sheet, Empty, PasswordInput, Spinner } from './common'
-import { rpc, write } from '../lib/api'
+import { rpc, write, fetchSettings, saveSettings, fetchAuditLog } from '../lib/api'
+import { stamp } from '../lib/util'
 import { translateError } from './ActionSheet'
 
 // Filter order is by privilege; the create form below keeps its own order.
@@ -413,11 +414,16 @@ export function NewUser({ t, lang, stations, reload }) {
   )
 }
 
-/** Stations: create one, see the rest, take one out of service. */
-export function StationList({ t, reload }) {
+/**
+ * Stations: create one, see the rest, take one out of service. Stations are
+ * never deleted (orders and accounts reference them historically) — they are
+ * deactivated instead, which hides them from new orders but keeps history.
+ */
+export function StationList({ t, lang, stations = [], reload }) {
   const [problem, setProblem] = useState('')
   const [form, setForm] = useState(BLANK_STATION)
   const [busy, setBusy] = useState(false)
+  const [toggling, setToggling] = useState(null)
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
 
   const add = async () => {
@@ -433,6 +439,7 @@ export function StationList({ t, reload }) {
           name_en: form.name_en.trim(),
           name_ku: form.name_ku.trim() || form.name_en.trim(),
           location: form.location.trim(),
+          phone: form.phone?.trim() || null,
         }),
       )
       setForm(BLANK_STATION)
@@ -444,35 +451,159 @@ export function StationList({ t, reload }) {
     }
   }
 
+  const toggle = async (s) => {
+    if (toggling) return
+    setToggling(s.id)
+    setProblem('')
+    try {
+      await write(supabase.from('stations').update({ is_active: !s.is_active }).eq('id', s.id))
+      reload()
+    } catch (e) {
+      setProblem(translateError(e, t))
+    } finally {
+      setToggling(null)
+    }
+  }
+
+  return (
+    <>
+      <div className="panel">
+        <h2>{t.addStation}</h2>
+        <ErrorBox>{problem}</ErrorBox>
+
+        <div className="row">
+          <div className="field">
+            <label htmlFor="s-code">{t.code}</label>
+            <input id="s-code" className="inp" value={form.code} placeholder="ST-01" onChange={set('code')} />
+          </div>
+          <div className="field">
+            <label htmlFor="s-loc">{t.location}</label>
+            <input id="s-loc" className="inp" value={form.location} onChange={set('location')} />
+          </div>
+        </div>
+        <div className="row">
+          <div className="field">
+            <label htmlFor="s-en">{t.nameEn}</label>
+            <input id="s-en" className="inp" value={form.name_en} onChange={set('name_en')} />
+          </div>
+          <div className="field">
+            <label htmlFor="s-ku">{t.nameKu}</label>
+            <input id="s-ku" className="inp" value={form.name_ku} onChange={set('name_ku')} />
+          </div>
+        </div>
+        <div className="field">
+          <label htmlFor="s-phone">{t.contactWord} <span className="hint">· {t.optional}</span></label>
+          <input id="s-phone" className="inp" type="tel" value={form.phone || ''} onChange={set('phone')} />
+        </div>
+        <button className="btn btn-go wide" disabled={busy} onClick={add}>
+          {busy ? t.saving : t.addStation}
+        </button>
+      </div>
+
+      {stations.length > 0 && (
+        <div className="panel">
+          <h2>{t.tabStations}</h2>
+          {stations.map((s) => (
+            <div className="lrow" key={s.id}>
+              <div className="grow">
+                <b>{lang === 'ku' ? s.name_ku : s.name_en}</b>
+                <small>{s.code} · {s.location}</small>
+              </div>
+              <span className={'tag ' + (s.is_active ? 'on' : 'off')}>{s.is_active ? t.active : t.off}</span>
+              <button className="btn btn-ghost btn-sm" disabled={toggling === s.id} onClick={() => toggle(s)}>
+                {s.is_active ? t.turnOff : t.turnOn}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
+/** Workflow settings — the toggles that make certain fields required, etc. */
+export function Settings({ t }) {
+  const [data, setData] = useState(null)
+  const [state, setState] = useState('loading')
+  const [problem, setProblem] = useState('')
+  const [done, setDone] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    fetchSettings().then((d) => { setData(d); setState('ready') }).catch((e) => { setProblem(translateError(e, t)); setState('error') })
+  }, [t])
+
+  const toggle = (key) => setData((d) => ({ ...d, [key]: !d[key] }))
+  const save = async () => {
+    if (busy) return
+    setBusy(true); setProblem(''); setDone('')
+    try { await saveSettings(data); setDone(t.savedOk) } catch (e) { setProblem(translateError(e, t)) } finally { setBusy(false) }
+  }
+
+  if (state === 'loading') return <div className="panel"><Spinner label={t.loadingData} /></div>
+
+  const Toggle = ({ k, label }) => (
+    <div className="tog">
+      <span className="tl2">{label}</span>
+      <button className="switch" role="switch" aria-checked={!!data[k]} aria-label={label} onClick={() => toggle(k)} />
+    </div>
+  )
+
   return (
     <div className="panel">
-      <h2>{t.addStation}</h2>
+      <h2>{t.settingsTitle}</h2>
       <ErrorBox>{problem}</ErrorBox>
+      <Ok>{done}</Ok>
+      {data && (
+        <>
+          <Toggle k="require_dispatch_reference" label={t.settingRequireDispatch} />
+          <Toggle k="require_receiver_name" label={t.settingRequireReceiver} />
+          <Toggle k="allow_past_needed_date" label={t.settingAllowPast} />
+          <div className="field" style={{ marginTop: 12 }}>
+            <label htmlFor="set-max">{t.settingMaxQty}</label>
+            <input id="set-max" className="inp num" type="number" min="1" value={data.max_order_quantity ?? ''}
+              onChange={(e) => setData((d) => ({ ...d, max_order_quantity: Number(e.target.value) || 0 }))} />
+          </div>
+          <button className="btn btn-go wide" disabled={busy} onClick={save}>{busy ? t.saving : t.save}</button>
+        </>
+      )}
+    </div>
+  )
+}
 
-      <div className="row">
-        <div className="field">
-          <label htmlFor="s-code">{t.code}</label>
-          <input id="s-code" className="inp" value={form.code} placeholder="ST-01" onChange={set('code')} />
-        </div>
-        <div className="field">
-          <label htmlFor="s-loc">{t.location}</label>
-          <input id="s-loc" className="inp" value={form.location} onChange={set('location')} />
-        </div>
-      </div>
-      <div className="row">
-        <div className="field">
-          <label htmlFor="s-en">{t.nameEn}</label>
-          <input id="s-en" className="inp" value={form.name_en} onChange={set('name_en')} />
-        </div>
-        <div className="field">
-          <label htmlFor="s-ku">{t.nameKu}</label>
-          <input id="s-ku" className="inp" value={form.name_ku} onChange={set('name_ku')} />
-        </div>
-      </div>
-      <button className="btn btn-go wide" disabled={busy} onClick={add}>
-        {busy ? t.saving : t.addStation}
-      </button>
+/** System-wide audit log — every recorded order action, newest first. */
+export function AuditLog({ t, onOpenOrder }) {
+  const [rows, setRows] = useState(null)
+  const [problem, setProblem] = useState('')
 
+  useEffect(() => {
+    fetchAuditLog(120).then(setRows).catch((e) => { setProblem(translateError(e, t)); setRows([]) })
+  }, [t])
+
+  if (rows === null) return <div className="panel"><Spinner label={t.loadingData} /></div>
+
+  return (
+    <div className="panel">
+      <h2>{t.auditLog}</h2>
+      <ErrorBox>{problem}</ErrorBox>
+      {rows.length === 0 ? (
+        <Empty title={t.auditEmpty} msg={t.auditEmptyP} />
+      ) : (
+        <div className="tl">
+          {rows.map((ev) => (
+            <button key={ev.id} className="tl-i" style={{ width: '100%', background: 'transparent', border: 0, textAlign: 'start', cursor: 'pointer' }}
+              onClick={() => ev.order_id && onOpenOrder(ev.order_id)}>
+              <span className="tl-dot" aria-hidden="true" />
+              <div className="tl-b">
+                <div className="tl-h">{t['st_' + ev.to_status] || ev.event_type || ev.to_status}</div>
+                <div className="tl-m">{ev.actor_name || '—'} · {stamp(ev.created_at)}</div>
+                {ev.old_value && ev.new_value && <div className="tl-chg"><s>{ev.old_value}</s> → <b>{ev.new_value}</b></div>}
+                {ev.reason && <div className="tl-r">{ev.reason}</div>}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

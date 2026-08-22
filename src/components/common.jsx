@@ -1,13 +1,34 @@
 import { useEffect, useRef, useState } from 'react'
+import { RAIL } from '../lib/workflow'
 
 export function StatusChip({ status, t }) {
   return <span className={'chip c-' + status}>{t['st_' + status]}</span>
 }
 
-const RAIL = ['pending', 'approved', 'loaded', 'delivered']
+export function PriorityBadge({ priority, t }) {
+  if (!priority || priority === 'normal') return null
+  return <span className={'pri pri-' + priority}>{t['pr_' + priority]}</span>
+}
 
+/**
+ * Five-stage progress tracker: Requested → Review → Preparation → Dispatched →
+ * Confirmation → Completed. Off-rail end states (rejected / cancelled /
+ * disputed / changes requested) get a labelled end-cap instead of the rail.
+ */
 export function Rail({ status, t }) {
-  const labels = [t.rl_requested, t.rl_approved, t.rl_loaded, t.rl_delivered]
+  const labels = [t.trkRequested, t.trkReview, t.trkPrepare, t.trkDispatch, t.trkConfirm]
+  if (status === 'delivered') {
+    return <div className="railcap end-slate" style={{ background: 'var(--go-tint)', color: 'var(--go)' }}>✓ {t.trkDone}</div>
+  }
+  if (status === 'rejected' || status === 'cancelled') {
+    return <div className="railcap end-flag">{t['st_' + status]}</div>
+  }
+  if (status === 'disputed') {
+    return <div className="railcap end-flag">{t.st_disputed}</div>
+  }
+  if (status === 'changes_requested') {
+    return <div className="railcap end-slate">{t.st_changes_requested}</div>
+  }
   const at = RAIL.indexOf(status)
   if (at < 0) return null
   return (
@@ -16,6 +37,20 @@ export function Rail({ status, t }) {
         <div key={i} className={'rail-step' + (i <= at ? ' done' : '') + (i < at ? ' fill' : '')}>
           <div className="dot" />
           <small>{label}</small>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Placeholder rows shown while a list or panel loads, instead of a blank page. */
+export function Skeleton({ rows = 4 }) {
+  return (
+    <div aria-hidden="true">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div className="skel" key={i}>
+          <div className="skln w40" />
+          <div className="skln w80" />
         </div>
       ))}
     </div>

@@ -7,7 +7,7 @@
   "scripts": {
     "build": "node build.mjs",
     "dev": "node build.mjs --watch",
-    "test": "node test/util.test.mjs"
+    "test": "node test/util.test.mjs && node test/workflow.test.mjs && node test/i18n.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.58.0",
